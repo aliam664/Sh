@@ -1,0 +1,367 @@
+rules_version = '2';
+
+// ════════════════════════════════════════════════════════════════════
+//  Bluff / Bid — Firestore Security Rules
+//  نقش: Security Engineer
+//
+//  مدل امنیتی: Host-Authoritative + Rules سختگیرانه + History تغییرناپذیر
+//
+//  شفافیت مهندسی (حتماً بخوان):
+//  در معماری بدون سرور (پلن Spark) این قوانین «شکل» داده را اعتبارسنجی
+//  می‌کنند، نه «درستی منطق بازی» را. بنابراین:
+//    • بازیکن عادی نمی‌تواند امتیاز خود را عوض کند، نوبت را بدزدد،
+//      به‌جای دیگری Bid ثبت کند یا History را دستکاری کند.
+//    • Host از طریق کنسول مرورگر تئوریک می‌تواند نتیجه را دستکاری کند،
+//      چون او مجاز است امتیازها را بنویسد (کسی جز او نیست که بنویسد).
+//  امنیت ۱۰۰٪ فقط با Cloud Functions (پلن Blaze) ممکن است.
+// ════════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ─────────── توابع کمکی عمومی ─────────── */
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // فقط این فیلدها تغییر کرده باشند
+    function onlyChanged(fields) {
+      return incoming().diff(existing()).affectedKeys().hasOnly(fields);
+    }
+
+    function isStr(v, minLen, maxLen) {
+      return v is string && v.size() >= minLen && v.size() <= maxLen;
+    }
+
+    function isNum(v, lo, hi) {
+      return v is number && v >= lo && v <= hi;
+    }
+
+    /* ─────────── users/{userId} ─────────── */
+
+    function validStats(s) {
+      return s is map
+        && s.keys().hasOnly(['gamesPlayed','wins','totalScore','successfulBluffs','caughtBluffs','roundsWon'])
+        && s.keys().hasAll(['gamesPlayed','wins','totalScore','successfulBluffs','caughtBluffs','roundsWon'])
+        && s.gamesPlayed is number && s.gamesPlayed >= 0
+        && s.wins is number && s.wins >= 0
+        && s.totalScore is number
+        && s.successfulBluffs is number && s.successfulBluffs >= 0
+        && s.caughtBluffs is number && s.caughtBluffs >= 0
+        && s.roundsWon is number && s.roundsWon >= 0;
+    }
+
+    match /users/{userId} {
+      // پروفایل عمومی است تا نام و آواتار بازیکنان قابل نمایش باشد
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && userId == uid()
+        && incoming().userId == uid()
+        && isStr(incoming().username, 2, 16)
+        && isStr(incoming().avatarSeed, 0, 24)
+        && validStats(incoming().stats)
+        && incoming().stats.gamesPlayed == 0
+        && incoming().stats.wins == 0
+        && incoming().keys().hasOnly(['userId','username','avatarSeed','joinTime','lastSeen','stats']);
+
+      // به‌روزرسانی: کاربر فقط سند خودش را می‌نویسد.
+      // stats فقط با increment رشد می‌کند و کاهش شدید مجاز نیست.
+      allow update: if isSignedIn()
+        && userId == uid()
+        && incoming().userId == existing().userId
+        && isStr(incoming().username, 2, 16)
+        && onlyChanged(['username','avatarSeed','lastSeen','stats'])
+        && (!('stats' in incoming().diff(existing()).affectedKeys()) || (
+              validStats(incoming().stats)
+              && incoming().stats.gamesPlayed >= existing().stats.gamesPlayed
+              && incoming().stats.gamesPlayed <= existing().stats.gamesPlayed + 1
+              && incoming().stats.wins >= existing().stats.wins
+              && incoming().stats.wins <= existing().stats.wins + 1
+           ));
+
+      allow delete: if isSignedIn() && userId == uid();
+    }
+
+    /* ─────────── rooms/{roomId} ─────────── */
+
+    match /rooms/{roomId} {
+
+      function room() {
+        return get(/databases/$(database)/documents/rooms/$(roomId)).data;
+      }
+
+      function isHost() {
+        return isSignedIn() && room().hostId == uid();
+      }
+
+      function isPlayer() {
+        return isSignedIn()
+          && exists(/databases/$(database)/documents/rooms/$(roomId)/players/$(uid()));
+      }
+
+      function hostSeenMillis() {
+        return exists(/databases/$(database)/documents/rooms/$(roomId)/players/$(room().hostId))
+          ? get(/databases/$(database)/documents/rooms/$(roomId)/players/$(room().hostId)).data.lastSeen
+          : null;
+      }
+
+      // Host بیش از ۴۰ ثانیه آفلاین بوده است؟
+      function hostIsStale() {
+        return hostSeenMillis() == null
+          || request.time.toMillis() - hostSeenMillis().toMillis() > 40000;
+      }
+
+      function validSettings(s) {
+        return s is map
+          && s.keys().hasOnly(['endMode','maxRounds','targetScore','bidTimeout','challengeTimeout','categories'])
+          && (s.endMode == 'rounds' || s.endMode == 'target')
+          && isNum(s.maxRounds, 1, 50)
+          && isNum(s.targetScore, 1, 200)
+          && isNum(s.bidTimeout, 5000, 300000)
+          && isNum(s.challengeTimeout, 5000, 600000)
+          && s.categories is list
+          && s.categories.size() <= 12;
+      }
+
+      function validPhase(p) {
+        return p in ['lobby','topic','bidding','challenge','reveal','roundEnd','gameOver'];
+      }
+
+      function validStatus(st) {
+        return st in ['waiting','playing','finished'];
+      }
+
+      // ── خواندن: فقط اعضای اتاق ──
+      // استثنا: کسی که هنوز عضو نیست باید بتواند وجود اتاق را بررسی کند تا وارد شود.
+      // بنابراین خواندن سند اصلی برای هر کاربر احراز هویت‌شده مجاز است
+      // (این سند هیچ داده‌ی حساسی — از جمله جواب سوال‌ها — ندارد).
+      allow get: if isSignedIn();
+
+      // پیمایش کل اتاق‌ها ممنوع است. تنها کوئری مجاز، کوئری «اتاق‌های خودم»
+      // است که برای پاکسازی تنبل اتاق‌های ۲۴ ساعته استفاده می‌شود.
+      // Rules برای list روی تک‌تک نتایج اجرا می‌شود، پس کوئری بدون
+      // شرط hostId == uid کل نتیجه را رد می‌کند.
+      allow list: if isSignedIn() && existing().hostId == uid();
+
+      // ── ساخت اتاق ──
+      allow create: if isSignedIn()
+        && incoming().hostId == uid()
+        && incoming().roomId == roomId
+        && roomId.size() == 6
+        && incoming().status == 'waiting'
+        && incoming().phase == 'lobby'
+        && incoming().playerCount == 1
+        && incoming().turnOrder == [uid()]
+        && incoming().currentRound == 0
+        && incoming().currentBid == 0
+        && validSettings(incoming().settings)
+        && incoming().difficulty in ['easy','medium','hard','mixed'];
+
+      // ── به‌روزرسانی ──
+      allow update: if isSignedIn() && (
+        // (۱) Host کنترل کامل منطق بازی را دارد
+        (
+          existing().hostId == uid()
+          && incoming().hostId == existing().hostId
+          && validStatus(incoming().status)
+          && validPhase(incoming().phase)
+          && isNum(incoming().currentBid, 0, 1000)
+          && isNum(incoming().currentRound, 0, 200)
+          && validSettings(incoming().settings)
+          && incoming().turnOrder is list
+          && incoming().turnOrder.size() <= 8
+        )
+        ||
+        // (۲) هر بازیکن عضو: ثبت Bid روی نوبت خودش
+        (
+          isPlayer()
+          && existing().phase == 'bidding'
+          && existing().currentTurn == uid()
+          && onlyChanged(['currentBid','currentBidder','currentTurn','timerStart','timerDuration','updatedAt'])
+          && incoming().currentBidder == uid()
+          && incoming().currentBid is int
+          && incoming().currentBid > existing().currentBid
+          && incoming().currentBid <= 1000
+          && incoming().currentTurn in existing().turnOrder
+          // فاصله‌ی زمانی حداقلی بین دو نوشتن (ضد اسپم)
+          && request.time.toMillis() - existing().updatedAt.toMillis() > 300
+        )
+        ||
+        // (۳) هر بازیکن عضو: زدن BLUFF روی نوبت خودش
+        (
+          isPlayer()
+          && existing().phase == 'bidding'
+          && existing().currentTurn == uid()
+          && existing().currentBid > 0
+          && existing().currentBidder != uid()
+          && onlyChanged(['phase','challengeActive','challengerId','timerStart','timerDuration','updatedAt'])
+          && incoming().phase == 'challenge'
+          && incoming().challengeActive == true
+          && incoming().challengerId == uid()
+        )
+        ||
+        // (۴) ورود بازیکن جدید: فقط افزایش شمارش و افزودن uid خودش به ترتیب نوبت
+        (
+          isSignedIn()
+          && existing().status == 'waiting'
+          && onlyChanged(['playerCount','turnOrder','updatedAt'])
+          && incoming().playerCount == existing().playerCount + 1
+          && incoming().playerCount <= 8
+          && incoming().turnOrder.size() == existing().turnOrder.size() + 1
+          && incoming().turnOrder[incoming().turnOrder.size() - 1] == uid()
+          && !(uid() in existing().turnOrder)
+        )
+        ||
+        // (۵) خروج بازیکن: کوچک شدن لیست
+        (
+          isPlayer()
+          && onlyChanged(['playerCount','turnOrder','updatedAt'])
+          && incoming().turnOrder.size() < existing().turnOrder.size()
+          && incoming().playerCount == incoming().turnOrder.size()
+        )
+        ||
+        // (۶) Host Migration: تغییر hostId فقط وقتی Host فعلی آفلاین است
+        (
+          isPlayer()
+          && hostIsStale()
+          && onlyChanged(['hostId','updatedAt'])
+          && incoming().hostId == uid()
+        )
+      );
+
+      // ── حذف اتاق: فقط Host ──
+      allow delete: if isSignedIn() && existing().hostId == uid();
+
+      /* ─────────── players/{playerId} ─────────── */
+
+      match /players/{playerId} {
+        allow read: if isSignedIn();
+
+        // بازیکن فقط سند خودش را می‌سازد و امتیاز اولیه حتماً صفر است
+        allow create: if isSignedIn()
+          && playerId == uid()
+          && incoming().userId == uid()
+          && isStr(incoming().name, 1, 16)
+          && incoming().score == 0
+          && incoming().isReady is bool
+          && incoming().isHost is bool
+          && isNum(incoming().seat, 0, 7)
+          && incoming().keys().hasOnly(['userId','name','score','joinedAt','isOnline','lastSeen','isReady','isHost','seat']);
+
+        allow update: if isSignedIn() && (
+          // (۱) خود بازیکن: فقط فیلدهای بی‌خطر — امتیاز هرگز
+          (
+            playerId == uid()
+            && onlyChanged(['name','isReady','lastSeen','isOnline'])
+            && (!('name' in incoming().diff(existing()).affectedKeys()) || isStr(incoming().name, 1, 16))
+          )
+          ||
+          // (۲) Host: نوشتن امتیاز و پرچم میزبانی (نتیجه‌ی دور)
+          (
+            room().hostId == uid()
+            && onlyChanged(['score','isHost','isOnline'])
+            && incoming().score is number
+            && incoming().score >= -500 && incoming().score <= 500
+          )
+          ||
+          // (۳) Host Migration: فقط وقتی میزبان فعلی بیش از ۴۰ ثانیه آفلاین است
+          (
+            exists(/databases/$(database)/documents/rooms/$(roomId)/players/$(uid()))
+            && hostIsStale()
+            && onlyChanged(['isHost'])
+          )
+        );
+
+        // بازیکن فقط خودش را حذف می‌کند؛ Host می‌تواند هر بازیکنی را حذف کند
+        allow delete: if isSignedIn() && (playerId == uid() || room().hostId == uid());
+      }
+
+      /* ─────────── rounds/{roundId} — وضعیت دور جاری ─────────── */
+
+      match /rounds/{roundId} {
+        allow read: if isSignedIn();
+
+        // ساخت سند دور فقط توسط Host
+        allow create: if isSignedIn()
+          && room().hostId == uid()
+          && incoming().roundNumber is number
+          && incoming().bids is list
+          && incoming().answers is list;
+
+        allow update: if isSignedIn() && (
+          // Host: داوری جواب‌ها، تعیین مدافع/چالش‌کننده
+          room().hostId == uid()
+          ||
+          // افزودن یک رکورد به تاریخچه‌ی مناقصه‌ی همین دور توسط یک عضو اتاق.
+          // نکته: داخل Transaction، get() حالت «پیش از تراکنش» را می‌خواند،
+          // پس نمی‌توان currentBidder را با uid مقایسه کرد؛ عضویت کافی است
+          // چون این آرایه صرفاً لاگ نمایشی است و امتیازی از آن محاسبه نمی‌شود.
+          (
+            exists(/databases/$(database)/documents/rooms/$(roomId)/players/$(uid()))
+            && onlyChanged(['bids'])
+            && incoming().bids.size() == existing().bids.size() + 1
+            && incoming().bids.size() <= 100
+          )
+          ||
+          // ثبت چالش: چالش‌کننده مدافع و خودش را روی سند دور می‌نویسد
+          (
+            exists(/databases/$(database)/documents/rooms/$(roomId)/players/$(uid()))
+            && onlyChanged(['challengerId','defenderId'])
+            && incoming().challengerId == uid()
+            && incoming().defenderId != uid()
+          )
+          ||
+          // مدافع جواب ثبت می‌کند
+          (
+            existing().defenderId == uid()
+            && room().phase == 'challenge'
+            && onlyChanged(['answers'])
+            && incoming().answers.size() > existing().answers.size()
+            && incoming().answers.size() <= 100
+          )
+        );
+
+        allow delete: if isSignedIn() && room().hostId == uid();
+      }
+
+      /* ─────────── history/{roundId} — append-only و تغییرناپذیر ─────────── */
+
+      match /history/{roundId} {
+        allow read: if isSignedIn();
+
+        // فقط Host رکورد نتیجه را می‌سازد، آن هم یک‌بار
+        allow create: if isSignedIn()
+          && room().hostId == uid()
+          && incoming().roundNumber is number
+          && isStr(incoming().topic, 1, 80)
+          && incoming().finalBid is number
+          && isStr(incoming().defenderId, 1, 128)
+          && incoming().success is bool
+          && incoming().deltas is map;
+
+        // قانون طلایی: رکورد تاریخچه هرگز قابل ویرایش نیست
+        allow update: if false;
+
+        // حذف فقط در سناریوی «حذف کامل اتاق» توسط Host مجاز است.
+        // بدون این استثنا، اسناد تاریخچه پس از حذف اتاق تا ابد یتیم می‌مانند
+        // و سهمیه‌ی رایگان را می‌سوزانند. ویرایش همچنان کاملاً ممنوع است،
+        // پس دستکاری نتیجه‌ی یک دور در میانه‌ی بازی ممکن نیست.
+        allow delete: if isSignedIn() && room().hostId == uid();
+      }
+    }
+  }
+}

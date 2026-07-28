@@ -1,24 +1,78 @@
 <!DOCTYPE html>
-<html lang="fa">
+<html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bluff Game - Online Multiplayer</title>
-<link rel="stylesheet" href="css/style.css">
-<link rel="manifest" href="manifest.json">
-<style>
-body{background:#0f0f13;color:#fff;font-family:sans-serif;margin:0;padding:0;display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(135deg,#0f0f13 0%,#1a1a2e 100%);}
-.glass{background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:40px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.5);}
-h1{font-size:2.5rem;margin-bottom:10px;background:linear-gradient(90deg,#00f0ff,#ff0055);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.btn{display:inline-block;padding:14px 32px;background:linear-gradient(90deg,#00f0ff,#ff0055);border:none;border-radius:50px;color:#fff;font-weight:bold;margin-top:20px;text-decoration:none;box-shadow:0 10px 30px rgba(255,0,85,0.3);}
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07070d">
+<meta name="description" content="بازی آنلاین چندنفره‌ی بلوف و مناقصه — داور و تخته‌ی امتیاز برای بازی با دوستان در تماس صوتی">
+<title>Bluff / Bid — بازی آنلاین بلوف</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="./css/style.css">
+<link rel="stylesheet" href="./css/responsive.css">
 </head>
 <body>
-<div class="glass">
-<h1>Bluff Game</h1>
-<p>بازی آنلاین چندنفره با صدا و بلوف</p>
-<a href="login.html" class="btn">ورود ناشناس / ثبت نام</a>
-<p style="margin-top:30px;font-size:0.9rem;color:#aaa;">Repo: <a href="https://github.com/aliam664/Sh" style="color:#00f0ff;">GitHub</a> | Live: <a href="https://aliam664.github.io/Sh/" style="color:#00f0ff;">Pages</a></p>
-</div>
+
+<main class="splash" id="splash">
+  <div class="stack center">
+    <h1 class="splash__logo">Bluff&nbsp;/&nbsp;Bid</h1>
+    <p class="splash__tag">بلوف بزن، مناقصه کن، برنده شو</p>
+    <div class="spinner" id="spinner" role="status" aria-label="در حال بارگذاری"></div>
+    <p class="small dim" id="status">در حال اتصال…</p>
+  </div>
+</main>
+
+<script type="module">
+/**
+ * Splash — ورود ناشناس خودکار و مسیریابی.
+ * اگر کاربر نام دارد ⇒ lobby ، در غیر این صورت ⇒ login
+ */
+import { ensureSignedIn, fetchProfile } from "./js/firebase-auth.js";
+import { toast, registerServiceWorker, fatalScreen } from "./js/ui.js";
+import { store, log } from "./js/security.js";
+
+registerServiceWorker();
+
+const statusEl = document.getElementById("status");
+const setStatus = (t) => { statusEl.textContent = t; };
+
+// اگر کاربر با لینک دعوت آمده، کد را نگه می‌داریم تا بعد از ورود منتقل شود
+const incomingCode = new URLSearchParams(location.search).get("code");
+
+(async () => {
+  try {
+    setStatus("ورود ناشناس…");
+    const user = await ensureSignedIn();
+
+    setStatus("خواندن پروفایل…");
+    const profile = await fetchProfile(user.uid);
+
+    // کمی مکث تا انیمیشن اسپلش دیده شود (تجربه‌ی کاربری، نه انتظار الکی)
+    await new Promise((r) => setTimeout(r, 350));
+
+    const target = profile ? "./lobby.html" : "./login.html";
+    const url = new URL(target, location.href);
+    if (incomingCode) url.searchParams.set("code", incomingCode);
+    location.replace(url.toString());
+  } catch (err) {
+    if (err && err.message === "firebase-config-missing") return;  // صفحه‌ی راهنما نمایش داده شده
+    log.error("splash", err);
+    document.getElementById("spinner")?.classList.add("hidden");
+    if (!navigator.onLine) {
+      const last = store.get("profile", null);
+      fatalScreen("اینترنت وصل نیست",
+        last ? "برای ادامه‌ی بازی به اینترنت نیاز داری. بعد از اتصال دوباره تلاش کن."
+             : "برای اولین ورود باید به اینترنت وصل باشی.",
+        "تلاش دوباره", "./index.html");
+      return;
+    }
+    setStatus("خطا در اتصال");
+    toast("اتصال به سرور ممکن نشد. صفحه را دوباره باز کن", "error", 6000);
+  }
+})();
+</script>
 </body>
 </html>

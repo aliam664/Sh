@@ -1,0 +1,114 @@
+/* ============================================================
+   Bluff / Bid — responsive.css
+   نقش: UI/UX Designer
+   Mobile-first. نقطه‌ی شروع: عرض ۳۲۰ پیکسل.
+   Breakpoints: 360 · 480 · 768 · 1024 · 1280
+   ============================================================ */
+
+/* ─── گوشی‌های بسیار کوچک: ۳۲۰px ─── */
+@media (max-width: 359px) {
+  :root { --sp-4: 12px; --sp-5: 18px; }
+  body { font-size: 15px; }
+  .page { padding: var(--sp-3); }
+  .topic-card__title { font-size: 1.2rem; }
+  .bid-value { font-size: 3.2rem; }
+  .btn-bluff { min-height: 60px; font-size: 1.25rem; }
+  .btn { padding: 0 var(--sp-4); font-size: 0.95rem; }
+  .stat-grid { grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+  .stat__value { font-size: 1.4rem; }
+  .input--code { font-size: 1.3rem; letter-spacing: 0.3em; }
+  .quick-bids .btn { font-size: 0.85rem; padding: 0 var(--sp-2); }
+}
+
+/* ─── گوشی معمولی ─── */
+@media (min-width: 360px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ─── گوشی بزرگ / فبلت ─── */
+@media (min-width: 480px) {
+  .page { padding: var(--sp-5); max-width: 600px; }
+  h1 { font-size: 1.85rem; }
+  .stat-grid { grid-template-columns: repeat(3, 1fr); }
+  .topic-card__title { font-size: 1.6rem; }
+  .quick-bids .btn { min-height: 48px; }
+}
+
+/* ─── تبلت ─── */
+@media (min-width: 768px) {
+  .page { max-width: 720px; padding: var(--sp-6) var(--sp-5); }
+  .appbar { padding-left: var(--sp-6); padding-right: var(--sp-6); }
+  .bid-value { font-size: 5.4rem; }
+  .btn-bluff { min-height: 76px; font-size: 1.7rem; }
+
+  /* لیست بازیکنان دو ستونه می‌شود */
+  .players-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sp-3);
+  }
+  .toast-host { left: 50%; right: auto; transform: translateX(-50%); }
+  .lobby-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); align-items: start; }
+  .modal, .overlay__box { max-width: 480px; }
+}
+
+/* ─── دسکتاپ ─── */
+@media (min-width: 1024px) {
+  .page { max-width: 960px; }
+
+  /* صفحه‌ی بازی: دو ستونی — بازیکنان کنار زمین بازی */
+  .game-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.85fr);
+    gap: var(--sp-5);
+    align-items: start;
+  }
+  .game-layout__aside {
+    position: sticky;
+    top: 92px;
+  }
+  .players-grid { grid-template-columns: 1fr; }
+
+  .actionbar {
+    position: static;
+    margin: 0;
+    border-radius: var(--r-lg);
+    border: 1px solid var(--glass-border);
+    padding: var(--sp-4);
+  }
+
+  /* روی دسکتاپ hover منطقی است */
+  .btn:hover:not(:disabled)      { transform: translateY(-2px); }
+  .icon-btn:hover                { background: var(--glass-2); }
+  .player-card:hover             { background: rgba(255, 255, 255, 0.08); }
+  .chip:hover, .choice:hover     { border-color: var(--accent-glow); }
+  .btn-bluff:hover:not(:disabled){ box-shadow: 0 16px 44px rgba(255, 59, 92, 0.55); }
+}
+
+@media (min-width: 1280px) {
+  .page { max-width: 1120px; }
+  .bid-value { font-size: 6.4rem; }
+}
+
+/* ─── چرخش افقی روی گوشی: فشرده‌سازی عمودی ─── */
+@media (orientation: landscape) and (max-height: 500px) {
+  .appbar { padding-top: var(--sp-2); padding-bottom: var(--sp-2); }
+  .topic-card { padding: var(--sp-3); }
+  .topic-card__title { font-size: 1.1rem; }
+  .bid-box { padding: var(--sp-2) 0; }
+  .bid-value { font-size: 2.6rem; }
+  .btn-bluff { min-height: 54px; font-size: 1.2rem; }
+  .splash__logo { font-size: 2.2rem; }
+}
+
+/* ─── صفحه‌های خیلی بلند: کمی هوا ─── */
+@media (min-height: 860px) and (max-width: 767px) {
+  .page { padding-top: var(--sp-5); }
+  .bid-box { padding: var(--sp-5) 0; }
+}
+
+/* ─── چاپ: عملاً استفاده نمی‌شود، ولی نباید خراب باشد ─── */
+@media print {
+  body { background: #fff; color: #000; }
+  .appbar, .actionbar, .toast-host, .conn-bar, .update-bar { display: none !important; }
+}

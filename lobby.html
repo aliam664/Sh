@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07070d">
+<title>خانه — Bluff / Bid</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/icon-192.png" type="image/png">
+<link rel="stylesheet" href="./css/style.css">
+<link rel="stylesheet" href="./css/responsive.css">
+</head>
+<body>
+
+<div class="app">
+  <header class="appbar">
+    <div id="meAvatar"></div>
+    <div class="grow">
+      <h1 class="appbar__title" id="meName">…</h1>
+      <div class="appbar__sub">آماده‌ی بلوف زدن؟</div>
+    </div>
+    <a class="icon-btn" href="./profile.html" aria-label="پروفایل و آمار" id="profileLink"></a>
+  </header>
+
+  <main class="page stack">
+
+    <div id="resumeSlot"></div>
+
+    <div class="lobby-actions stack">
+      <!-- ساخت بازی -->
+      <section class="glass card stack">
+        <h2>ساخت بازی جدید</h2>
+
+        <div class="field">
+          <span class="label">شرط پایان بازی</span>
+          <div class="choice-group" id="endModeRow" role="group" aria-label="شرط پایان بازی">
+            <button class="choice is-active" type="button" data-mode="rounds">تعداد دور</button>
+            <button class="choice" type="button" data-mode="target">امتیاز هدف</button>
+          </div>
+        </div>
+
+        <div class="field" id="roundsField">
+          <span class="label">چند دور؟</span>
+          <div class="choice-group" id="roundsRow" role="group" aria-label="تعداد دور">
+            <button class="choice is-active" type="button" data-rounds="5">۵ دور</button>
+            <button class="choice" type="button" data-rounds="10">۱۰ دور</button>
+          </div>
+        </div>
+
+        <div class="field hidden" id="targetField">
+          <label class="label" for="targetInput">امتیاز هدف</label>
+          <input class="input input--num" id="targetInput" type="number" inputmode="numeric"
+                 min="5" max="50" step="1" value="15">
+        </div>
+
+        <div class="field">
+          <label class="label" for="difficultySelect">سطح سختی سوال‌ها</label>
+          <select class="select" id="difficultySelect">
+            <option value="mixed">ترکیبی</option>
+            <option value="easy">آسان</option>
+            <option value="medium">متوسط</option>
+            <option value="hard">سخت</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <span class="label">دسته‌های سوال <span class="dim small">(خالی = همه)</span></span>
+          <div class="row row--wrap" id="catRow"></div>
+        </div>
+
+        <button class="btn btn--primary btn--block btn--lg" id="createBtn" type="button">ساخت اتاق</button>
+      </section>
+
+      <!-- ورود به بازی -->
+      <section class="glass card stack">
+        <h2>ورود به بازی</h2>
+        <div class="field">
+          <label class="label" for="codeInput">کد اتاق</label>
+          <input class="input input--code" id="codeInput" type="text" inputmode="latin"
+                 autocapitalize="characters" autocomplete="off" spellcheck="false"
+                 maxlength="6" placeholder="A92KLP" aria-describedby="codeHint">
+          <div class="small dim" id="codeHint">کد ۶ کاراکتری که میزبان برایت فرستاده را وارد کن.</div>
+        </div>
+        <button class="btn btn--success btn--block btn--lg" id="joinBtn" type="button">ورود</button>
+      </section>
+    </div>
+
+    <section class="glass card stack-2">
+      <h3>چطور بازی کنیم؟</h3>
+      <p class="small dim">
+        این سایت فقط داور و تخته‌ی امتیاز است و هیچ صدایی پخش یا ضبط نمی‌کند.
+        شما در یک تماس صوتی جدا (دیسکورد، واتس‌اپ، تلگرام) با هم حرف می‌زنید و
+        اینجا فقط پیشنهاد، بلوف و امتیاز ثبت می‌شود.
+      </p>
+    </section>
+
+  </main>
+</div>
+
+<script type="module">
+/** Lobby — ساخت اتاق، ورود با کد، Deep Link، پاکسازی تنبل اتاق‌های قدیمی */
+import { pageGuard } from "./js/firebase-auth.js";
+import { createRoom, cleanupOldRooms, getRoom, MIN_PLAYERS } from "./js/database.js";
+import { attemptJoin, getActiveRoomId, clearActiveRoom } from "./js/room.js";
+import { CATEGORIES, CATEGORY_LABELS } from "./js/questions.js";
+import {
+  el, $, $$, avatar, icon, toast, setBusy, clear, registerServiceWorker, fmtNumber
+} from "./js/ui.js";
+import { sanitizeRoomCode, isValidRoomCode, clampInt, log } from "./js/security.js";
+
+registerServiceWorker();
+
+const state = { user: null, profile: null, endMode: "rounds", rounds: 5, categories: new Set() };
+
+const codeInput = $("#codeInput");
+const joinBtn   = $("#joinBtn");
+const createBtn = $("#createBtn");
+
+$("#profileLink").append(icon("chart", 20));
+
+/* ── انتخاب‌گرهای تنظیمات ── */
+$$("#endModeRow .choice").forEach((btn) => btn.addEventListener("click", () => {
+  state.endMode = btn.dataset.mode;
+  $$("#endModeRow .choice").forEach((b) => b.classList.toggle("is-active", b === btn));
+  $("#roundsField").classList.toggle("hidden", state.endMode !== "rounds");
+  $("#targetField").classList.toggle("hidden", state.endMode !== "target");
+}));
+
+$$("#roundsRow .choice").forEach((btn) => btn.addEventListener("click", () => {
+  state.rounds = Number(btn.dataset.rounds);
+  $$("#roundsRow .choice").forEach((b) => b.classList.toggle("is-active", b === btn));
+}));
+
+const catRow = $("#catRow");
+CATEGORIES.forEach((cat) => {
+  const chip = el("button", { class: "chip", type: "button" }, [CATEGORY_LABELS[cat] || cat]);
+  chip.addEventListener("click", () => {
+    if (state.categories.has(cat)) state.categories.delete(cat);
+    else state.categories.add(cat);
+    chip.classList.toggle("is-active", state.categories.has(cat));
+  });
+  catRow.append(chip);
+});
+
+/* ── ورودی کد: بزرگ‌سازی و فیلتر خودکار ── */
+codeInput.addEventListener("input", () => {
+  const clean = sanitizeRoomCode(codeInput.value);
+  if (clean !== codeInput.value) codeInput.value = clean;
+  if (clean.length === 6) joinBtn.focus();
+});
+codeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") joinBtn.click(); });
+
+/* ── ساخت اتاق ── */
+createBtn.addEventListener("click", async () => {
+  setBusy(createBtn, true, "در حال ساخت…");
+  try {
+    const settings = {
+      endMode: state.endMode,
+      maxRounds: state.rounds,
+      targetScore: clampInt($("#targetInput").value, 5, 50),
+      categories: [...state.categories]
+    };
+    const code = await createRoom({
+      uid: state.user.uid,
+      name: state.profile.username,
+      settings,
+      difficulty: $("#difficultySelect").value
+    });
+    location.href = `./room.html?code=${code}`;
+  } catch (err) {
+    log.error("createRoom", err);
+    setBusy(createBtn, false);
+    toast("ساخت اتاق ممکن نشد. دوباره تلاش کن", "error");
+  }
+});
+
+/* ── ورود به اتاق ── */
+async function doJoin(code) {
+  if (!isValidRoomCode(code)) { toast("کد اتاق باید ۶ کاراکتر باشد", "warn"); return; }
+  setBusy(joinBtn, true, "در حال ورود…");
+  const res = await attemptJoin({ roomId: code, uid: state.user.uid, name: state.profile.username });
+  if (res.ok) {
+    const room = await getRoom(code).catch(() => null);
+    location.href = room && room.status === "playing" ? `./game.html?code=${code}` : `./room.html?code=${code}`;
+    return;
+  }
+  setBusy(joinBtn, false);
+  toast(res.message, "error");
+}
+
+joinBtn.addEventListener("click", () => doJoin(sanitizeRoomCode(codeInput.value)));
+
+/* ── بازگشت به بازی در جریان ── */
+async function renderResume() {
+  const active = getActiveRoomId();
+  if (!active) return;
+  const room = await getRoom(active).catch(() => null);
+  if (!room || room.status === "finished") { clearActiveRoom(); return; }
+
+  const box = el("section", { class: "glass card row row--between" }, [
+    el("div", { class: "stack-2" }, [
+      el("strong", { text: "یک بازی در جریان داری" }),
+      el("span", { class: "small dim", text: `اتاق ${active} · ${room.status === "playing" ? "در حال بازی" : "اتاق انتظار"}` })
+    ]),
+    el("a", {
+      class: "btn btn--warning btn--sm",
+      href: room.status === "playing" ? `./game.html?code=${active}` : `./room.html?code=${active}`
+    }, ["بازگشت"])
+  ]);
+  clear($("#resumeSlot"));
+  $("#resumeSlot").append(box);
+}
+
+/* ── بوت ── */
+(async () => {
+  try {
+    const { user, profile } = await pageGuard();
+    state.user = user;
+    state.profile = profile;
+
+    $("#meName").textContent = profile.username;
+    $("#meAvatar").append(avatar(profile.username, profile.avatarSeed, 42));
+
+    await renderResume();
+
+    // Deep Link: lobby.html?code=A92KLP
+    const incoming = sanitizeRoomCode(new URLSearchParams(location.search).get("code") || "");
+    if (incoming) {
+      codeInput.value = incoming;
+      await doJoin(incoming);
+    }
+
+    // پاکسازی تنبل — بی‌صدا و بدون بلاک کردن UI
+    cleanupOldRooms(user.uid).then((n) => { if (n) log.debug(`cleaned ${n} old rooms`); });
+  } catch (err) {
+    if (err && (err.message === "redirect-login" || err.message === "firebase-config-missing")) return;
+    log.error("lobby boot", err);
+    toast("اتصال به سرور ممکن نشد", "error", 6000);
+  }
+})();
+</script>
+</body>
+</html>

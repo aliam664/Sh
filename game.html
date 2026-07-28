@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07070d">
+<title>بازی — Bluff / Bid</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/icon-192.png" type="image/png">
+<link rel="stylesheet" href="./css/style.css">
+<link rel="stylesheet" href="./css/responsive.css">
+</head>
+<body>
+
+<div class="app">
+  <header class="appbar">
+    <button class="icon-btn" id="exitBtn" type="button" aria-label="خروج از بازی"></button>
+    <div class="grow">
+      <h1 class="appbar__title" id="roundTitle">دور ۱</h1>
+      <div class="appbar__sub" id="phaseLabel">در حال آماده‌سازی…</div>
+    </div>
+    <div id="timerSlot"></div>
+  </header>
+
+  <main class="page">
+    <div class="game-layout">
+      <div class="stack">
+
+        <!-- کارت موضوع -->
+        <section class="topic-card" id="topicCard">
+          <div class="topic-card__eyebrow">موضوع دور</div>
+          <div class="topic-card__title" id="topicTitle">در انتظار انتخاب موضوع…</div>
+          <div class="topic-card__meta" id="topicMeta"></div>
+        </section>
+
+        <!-- انتخاب موضوع (Host) -->
+        <section class="glass card stack hidden" id="topicPicker">
+          <h2>موضوع این دور را انتخاب کن</h2>
+          <button class="btn btn--primary btn--block" id="randomTopicBtn" type="button">موضوع تصادفی</button>
+          <div class="field">
+            <label class="label" for="topicSelect">یا از بانک سوال انتخاب کن</label>
+            <select class="select" id="topicSelect"></select>
+            <button class="btn btn--ghost btn--block" id="pickTopicBtn" type="button">انتخاب همین سوال</button>
+          </div>
+          <div class="field">
+            <label class="label" for="customTopic">یا موضوع دستی بنویس <span class="dim small">(تایید جواب‌ها با خودت)</span></label>
+            <input class="input" id="customTopic" type="text" maxlength="60" placeholder="مثلاً: برندهای خودرو">
+            <button class="btn btn--ghost btn--block" id="customTopicBtn" type="button">شروع با این موضوع</button>
+          </div>
+        </section>
+
+        <section class="glass card center hidden" id="topicWaiting">
+          <p class="dim" style="margin:0">میزبان در حال انتخاب موضوع است…</p>
+        </section>
+
+        <!-- عدد پیشنهاد -->
+        <section class="bid-box" id="bidBox">
+          <div class="bid-label">بالاترین پیشنهاد</div>
+          <div class="bid-value" id="bidValue">0</div>
+          <div class="bid-bidder" id="bidBidder">هنوز کسی پیشنهاد نداده</div>
+        </section>
+
+        <!-- مرحله‌ی چالش -->
+        <section class="glass card stack hidden" id="challengeBox">
+          <div class="row row--between">
+            <h2 style="margin:0" id="challengeTitle">چالش!</h2>
+            <span class="badge badge--danger" id="challengeCounter">0 / 0</span>
+          </div>
+          <div class="progress-track"><div class="progress-fill" id="progressFill" style="transform:scaleX(0)"></div></div>
+          <p class="small dim" id="challengeHint"></p>
+
+          <div class="field hidden" id="answerField">
+            <label class="label" for="answerInput">جوابت را بنویس و Enter بزن</label>
+            <input class="input" id="answerInput" type="text" maxlength="60"
+                   autocomplete="off" autocapitalize="off" spellcheck="false"
+                   placeholder="یک مورد بنویس…">
+          </div>
+
+          <div class="answers" id="answersList"></div>
+        </section>
+
+      </div>
+
+      <!-- بازیکنان -->
+      <aside class="game-layout__aside">
+        <section class="glass card stack-2">
+          <div class="accordion is-open" id="scoreAccordion">
+            <button class="accordion__head" type="button" id="scoreToggle">
+              <span>تخته‌ی امتیاز</span>
+              <span class="accordion__caret">▾</span>
+            </button>
+            <div class="accordion__body">
+              <div class="stack-2 players-grid" id="playerList"></div>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <!-- نوار کنش -->
+  <div class="actionbar" id="actionBar">
+    <div class="row" id="bidRow">
+      <input class="input input--num grow" id="bidInput" type="number" inputmode="numeric"
+             min="1" step="1" placeholder="عدد" aria-label="عدد پیشنهادی">
+      <button class="btn btn--primary" id="bidBtn" type="button">ثبت</button>
+    </div>
+    <div class="quick-bids" id="quickBids">
+      <button class="btn btn--ghost" type="button" data-inc="1">+1</button>
+      <button class="btn btn--ghost" type="button" data-inc="2">+2</button>
+      <button class="btn btn--ghost" type="button" data-inc="5">+5</button>
+    </div>
+    <button class="btn-bluff" id="bluffBtn" type="button">BLUFF</button>
+    <p class="small dim center" id="actionHint" style="margin:0"></p>
+  </div>
+</div>
+
+<!-- Overlay نتیجه‌ی دور -->
+<div class="overlay" id="roundOverlay" role="dialog" aria-modal="true" aria-labelledby="roundResultTitle">
+  <div class="overlay__box glass-strong stack">
+    <div class="overlay__icon" id="roundResultIcon">🎯</div>
+    <h2 class="overlay__title" id="roundResultTitle">نتیجه‌ی دور</h2>
+    <p class="dim" id="roundResultText"></p>
+    <div class="stack-2" id="roundDeltas"></div>
+    <button class="btn btn--primary btn--block btn--lg hidden" id="nextRoundBtn" type="button">دور بعد</button>
+    <p class="small dim" id="waitHostNote">منتظر میزبان برای شروع دور بعد…</p>
+  </div>
+</div>
+
+<!-- Overlay پایان بازی -->
+<div class="overlay" id="gameOverlay" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle">
+  <div class="overlay__box glass-strong stack">
+    <div class="overlay__icon">🏆</div>
+    <h2 class="overlay__title is-win" id="gameOverTitle">پایان بازی</h2>
+    <p class="dim" id="gameOverText"></p>
+    <div class="stack-2" id="finalRanking"></div>
+    <button class="btn btn--primary btn--block hidden" id="playAgainBtn" type="button">بازی دوباره</button>
+    <a class="btn btn--ghost btn--block" href="./lobby.html">بازگشت به خانه</a>
+  </div>
+</div>
+
+<script type="module">
+/**
+ * صفحه‌ی بازی — شامل Overlay نتیجه‌ی دور و Overlay پایان بازی.
+ * تصمیم معماری: Result یک Overlay است نه صفحه‌ی جدا، تا onSnapshot قطع نشود.
+ */
+import { pageGuard } from "./js/firebase-auth.js";
+import {
+  PHASE, STATUS, watchHistory, patchRoom, MIN_PLAYERS
+} from "./js/database.js";
+import { RoomSession, attemptJoin, clearActiveRoom } from "./js/room.js";
+import {
+  actionBid, actionBluff, actionAnswer, actionJudge, remainingMs, startTimerLoop,
+  hostPickTopic, hostHandleBidTimeout, hostResolveRound, hostNextRound, hostRestartGame,
+  countValidAnswers, isPlayerOnline, ranking, recordPersonalStats, nextOnlineTurn
+} from "./js/game-engine.js";
+import { QUESTIONS, CATEGORY_LABELS, DIFFICULTY_LABELS, maxBidFor } from "./js/questions.js";
+import {
+  el, $, $$, avatar, icon, toast, clear, timerRing, haptic, HAPTIC, pulse,
+  setConnectionState, registerServiceWorker, confirmDialog, fmtNumber, fmtScore,
+  fatalScreen, setBusy
+} from "./js/ui.js";
+import { sanitizeRoomCode, isValidRoomCode, sanitizeText, rateLimit, log, clampInt } from "./js/security.js";
+
+registerServiceWorker();
+
+const roomId = sanitizeRoomCode(new URLSearchParams(location.search).get("code") || "");
+let session = null;
+let me = null;
+let history = [];
+let lastBidShown = 0;
+let lastPhase = "";
+let statsRecorded = false;
+let resolving = false;
+let answerBusy = false;
+
+const ring = timerRing(58);
+$("#timerSlot").append(ring.node);
+$("#exitBtn").append(icon("back", 20));
+
+if (!isValidRoomCode(roomId)) {
+  fatalScreen("کد اتاق نامعتبر", "لینکی که باز کردی درست نیست.", "بازگشت به خانه", "./lobby.html");
+} else {
+  boot();
+}
+
+/* ═══════════════ کمکی‌ها ═══════════════ */
+
+const room = () => session?.room || null;
+const round = () => session?.round || null;
+const players = () => session?.players || [];
+const isHost = () => !!session?.isHost;
+const myUid = () => me?.uid;
+
+function nameOf(uid) { return session?.nameOf(uid) || "بازیکن"; }
+
+const PHASE_LABELS = {
+  [PHASE.TOPIC]: "انتخاب موضوع",
+  [PHASE.BIDDING]: "مرحله‌ی مناقصه",
+  [PHASE.CHALLENGE]: "چالش در جریان",
+  [PHASE.REVEAL]: "بررسی نتیجه",
+  [PHASE.ROUND_END]: "پایان دور",
+  [PHASE.GAME_OVER]: "پایان بازی",
+  [PHASE.LOBBY]: "اتاق انتظار"
+};
+
+/* ═══════════════ رندر ═══════════════ */
+
+function renderPlayers() {
+  const r = room();
+  if (!r) return;
+  const list = $("#playerList");
+  clear(list);
+
+  ranking(players()).forEach((p) => {
+    const uid = p.userId || p.id;
+    const online = isPlayerOnline(p);
+    const isTurn = r.phase === PHASE.BIDDING && r.currentTurn === uid;
+    const isDefender = r.phase === PHASE.CHALLENGE && (round()?.defenderId || r.currentBidder) === uid;
+    const score = Number(p.score) || 0;
+
+    list.append(el("div", {
+      class: `player-card ${uid === myUid() ? "is-me" : ""} ${online ? "" : "is-offline"} ${isTurn || isDefender ? "is-turn" : ""}`
+    }, [
+      avatar(p.name, uid, 40),
+      el("div", { class: "grow stack-2" }, [
+        el("div", { class: "player-card__name", text: p.name || "بازیکن" }),
+        el("div", { class: "player-card__meta" }, [
+          el("span", { class: `dot ${online ? "dot--on" : "dot--off"}` }),
+          r.hostId === uid ? el("span", { class: "badge badge--host", text: "میزبان" }) : null,
+          isTurn ? el("span", { class: "badge badge--turn", text: "نوبت" }) : null,
+          isDefender ? el("span", { class: "badge badge--danger", text: "مدافع" }) : null
+        ])
+      ]),
+      el("div", {
+        class: `player-card__score ${score > 0 ? "is-pos" : score < 0 ? "is-neg" : ""}`,
+        text: fmtNumber(score)
+      })
+    ]));
+  });
+}
+
+function renderTopic() {
+  const r = room();
+  const t = r?.topic;
+  if (!t) {
+    $("#topicTitle").textContent = "در انتظار انتخاب موضوع…";
+    $("#topicMeta").textContent = "";
+    return;
+  }
+  $("#topicTitle").textContent = t.title;
+  const bits = [];
+  if (t.category && CATEGORY_LABELS[t.category]) bits.push(CATEGORY_LABELS[t.category]);
+  if (t.difficulty && DIFFICULTY_LABELS[t.difficulty]) bits.push(DIFFICULTY_LABELS[t.difficulty]);
+  bits.push(t.isOpen ? "سوال آزاد — تایید با میزبان" : `حداکثر ${fmtNumber(t.maxAnswers)} مورد`);
+  $("#topicMeta").textContent = bits.join(" · ");
+}
+
+function renderBid() {
+  const r = room();
+  if (!r) return;
+  const v = Number(r.currentBid) || 0;
+  $("#bidValue").textContent = fmtNumber(v);
+  $("#bidBidder").textContent = r.currentBidder
+    ? `پیشنهاد ${nameOf(r.currentBidder)}`
+    : "هنوز کسی پیشنهاد نداده";
+  if (v !== lastBidShown) {
+    lastBidShown = v;
+    pulse($("#bidValue"));
+  }
+}
+
+function renderTopicPhase() {
+  const host = isHost();
+  $("#topicPicker").classList.toggle("hidden", !host);
+  $("#topicWaiting").classList.toggle("hidden", host);
+  $("#bidBox").classList.add("hidden");
+  $("#challengeBox").classList.add("hidden");
+  $("#actionBar").classList.add("hidden");
+}
+
+function renderBiddingPhase() {
+  const r = room();
+  $("#topicPicker").classList.add("hidden");
+  $("#topicWaiting").classList.add("hidden");
+  $("#bidBox").classList.remove("hidden");
+  $("#challengeBox").classList.add("hidden");
+  $("#actionBar").classList.remove("hidden");
+
+  const myTurn = r.currentTurn === myUid();
+  const hasBid = (r.currentBid || 0) > 0;
+  const cap = maxBidFor(r.topic);
+
+  $("#bidRow").classList.toggle("hidden", !myTurn);
+  $("#quickBids").classList.toggle("hidden", !myTurn);
+  $("#bluffBtn").classList.toggle("hidden", !myTurn);
+  $("#bluffBtn").disabled = !myTurn || !hasBid;
+
+  const input = $("#bidInput");
+  input.min = String((r.currentBid || 0) + 1);
+  input.max = String(cap);
+  if (myTurn && !input.value) input.value = String(Math.min(cap, (r.currentBid || 0) + 1));
+  if (!myTurn) input.value = "";
+
+  $("#actionHint").textContent = myTurn
+    ? (hasBid
+        ? `عددی بزرگ‌تر از ${fmtNumber(r.currentBid)} بده یا BLUFF بزن (سقف ${fmtNumber(cap)})`
+        : `تو شروع می‌کنی — یک عدد پیشنهاد بده (سقف ${fmtNumber(cap)})`)
+    : `نوبت ${nameOf(r.currentTurn)} است…`;
+}
+
+function renderChallengePhase() {
+  const r = room();
+  const rd = round();
+  $("#topicPicker").classList.add("hidden");
+  $("#topicWaiting").classList.add("hidden");
+  $("#bidBox").classList.remove("hidden");
+  $("#challengeBox").classList.remove("hidden");
+  $("#actionBar").classList.add("hidden");
+
+  const defenderId = rd?.defenderId || r.currentBidder;
+  const challengerId = rd?.challengerId || r.challengerId;
+  const iAmDefender = defenderId === myUid();
+  const valid = countValidAnswers(rd);
+  const need = r.currentBid || 0;
+
+  $("#challengeTitle").textContent = iAmDefender ? "نوبت توست! ثابت کن" : `${nameOf(defenderId)} باید جواب بدهد`;
+  $("#challengeCounter").textContent = `${fmtNumber(valid)} / ${fmtNumber(need)}`;
+  $("#progressFill").style.transform = `scaleX(${need ? Math.min(1, valid / need) : 0})`;
+  $("#challengeHint").textContent = iAmDefender
+    ? `باید ${fmtNumber(need)} مورد معتبر نام ببری. ${nameOf(challengerId)} به تو بلوف زد.`
+    : `${nameOf(challengerId)} بلوف زد. ${nameOf(defenderId)} باید ${fmtNumber(need)} مورد بگوید.`;
+
+  $("#answerField").classList.toggle("hidden", !iAmDefender);
+  if (iAmDefender) {
+    const input = $("#answerInput");
+    if (document.activeElement !== input) input.focus({ preventScroll: true });
+  }
+  renderAnswers();
+}
+
+function renderAnswers() {
+  const rd = round();
+  const r = room();
+  const list = $("#answersList");
+  clear(list);
+  const answers = rd?.answers || [];
+  const canJudge = isHost() && (r?.topic?.isOpen || answers.some((a) => a.method === "host"));
+
+  answers.forEach((a, i) => {
+    const cls = a.valid ? "is-valid" : (a.method === "host" ? "is-pending" : "is-invalid");
+    const pill = el("span", { class: `answer-pill ${a.valid ? "is-valid" : cls}` }, [
+      el("span", { text: a.text })
+    ]);
+    if (canJudge && !a.valid) {
+      pill.append(el("span", { class: "answer-pill__judge" }, [
+        el("button", { type: "button", "aria-label": "تایید", onclick: () => judge(i, true) }, ["✔"]),
+        el("button", { type: "button", "aria-label": "رد", onclick: () => judge(i, false) }, ["✘"])
+      ]));
+    } else if (canJudge && a.valid && r?.topic?.isOpen) {
+      pill.append(el("span", { class: "answer-pill__judge" }, [
+        el("button", { type: "button", "aria-label": "رد", onclick: () => judge(i, false) }, ["✘"])
+      ]));
+    }
+    list.append(pill);
+  });
+
+  if (!answers.length) list.append(el("span", { class: "small dim", text: "هنوز جوابی ثبت نشده" }));
+}
+
+async function judge(index, valid) {
+  try {
+    await actionJudge({ roomId, roundNumber: room().currentRound, index, valid });
+    haptic(HAPTIC.TAP);
+  } catch (err) { log.error("judge", err); toast("ثبت داوری ممکن نشد", "error"); }
+}
+
+/* ═══════════════ Overlayها ═══════════════ */
+
+function showRoundOverlay() {
+  const r = room();
+  const rec = history.find((h) => h.roundNumber === r.currentRound);
+  if (!rec) return;
+
+  const iWon = (rec.success && rec.defenderId === myUid()) || (!rec.success && rec.challengerId === myUid());
+  $("#roundResultIcon").textContent = rec.success ? "🛡️" : "💥";
+  const title = $("#roundResultTitle");
+  title.textContent = rec.success ? "مدافع موفق شد!" : "بلوف درست بود!";
+  title.className = `overlay__title ${iWon ? "is-win" : "is-lose"}`;
+  $("#roundResultText").textContent = rec.success
+    ? `${rec.defenderName} توانست ${fmtNumber(rec.finalBid)} مورد بگوید.`
+    : `${rec.defenderName} فقط ${fmtNumber(rec.answersGiven)} از ${fmtNumber(rec.finalBid)} مورد را گفت.`;
+
+  const box = $("#roundDeltas");
+  clear(box);
+  Object.entries(rec.deltas || {}).forEach(([uid, d]) => {
+    box.append(el("div", { class: "delta-row" }, [
+      el("span", { text: nameOf(uid) }),
+      el("span", { class: `delta-val ${d > 0 ? "is-pos" : d < 0 ? "is-neg" : ""}`, text: fmtScore(d) })
+    ]));
+  });
+
+  $("#nextRoundBtn").classList.toggle("hidden", !isHost());
+  $("#waitHostNote").classList.toggle("hidden", isHost());
+  $("#roundOverlay").classList.add("is-open");
+  haptic(iWon ? HAPTIC.WIN : HAPTIC.TIMEOUT);
+}
+
+function hideRoundOverlay() { $("#roundOverlay").classList.remove("is-open"); }
+
+function showGameOverlay() {
+  const list = ranking(players());
+  const winner = list[0];
+  const iWon = winner && (winner.userId || winner.id) === myUid();
+
+  $("#gameOverTitle").textContent = iWon ? "تو بردی! 🎉" : `${winner ? winner.name : "کسی"} برنده شد`;
+  $("#gameOverTitle").className = `overlay__title ${iWon ? "is-win" : "is-lose"}`;
+  $("#gameOverText").textContent = `بعد از ${fmtNumber(history.length)} دور، بازی تمام شد.`;
+
+  const box = $("#finalRanking");
+  clear(box);
+  list.forEach((p, i) => {
+    const s = Number(p.score) || 0;
+    box.append(el("div", { class: "delta-row" }, [
+      el("span", { text: `${fmtNumber(i + 1)}. ${p.name}` }),
+      el("span", { class: `delta-val ${s > 0 ? "is-pos" : s < 0 ? "is-neg" : ""}`, text: fmtNumber(s) })
+    ]));
+  });
+
+  $("#playAgainBtn").classList.toggle("hidden", !isHost());
+  $("#gameOverlay").classList.add("is-open");
+  haptic(HAPTIC.WIN);
+
+  if (!statsRecorded) {
+    statsRecorded = true;
+    recordPersonalStats({ uid: myUid(), players: players(), history })
+      .catch((e) => log.warn("stats", e));
+    clearActiveRoom();
+  }
+}
+
+/* ═══════════════ رندر اصلی ═══════════════ */
+
+function render() {
+  const r = room();
+  if (!r) return;
+
+  $("#roundTitle").textContent = `دور ${fmtNumber(r.currentRound || 1)}`;
+  const s = r.settings || {};
+  const suffix = s.endMode === "target" ? ` · هدف ${fmtNumber(s.targetScore)} امتیاز` : ` از ${fmtNumber(s.maxRounds)}`;
+  $("#phaseLabel").textContent = (PHASE_LABELS[r.phase] || "") + suffix;
+
+  renderTopic();
+  renderBid();
+  renderPlayers();
+
+  ring.setActive(!!r.timerDuration && (r.phase === PHASE.BIDDING || r.phase === PHASE.CHALLENGE));
+
+  if (r.phase !== lastPhase) {
+    lastPhase = r.phase;
+    if (r.phase !== PHASE.ROUND_END) hideRoundOverlay();
+    if (r.phase === PHASE.BIDDING) { $("#answerInput").value = ""; }
+  }
+
+  switch (r.phase) {
+    case PHASE.TOPIC:      renderTopicPhase(); break;
+    case PHASE.BIDDING:    renderBiddingPhase(); break;
+    case PHASE.CHALLENGE:  renderChallengePhase(); break;
+    case PHASE.ROUND_END:  renderPostPhase(); showRoundOverlay(); break;
+    case PHASE.GAME_OVER:  renderPostPhase(); showGameOverlay(); break;
+    default:               renderPostPhase();
+  }
+
+  if (isHost()) hostTick();
+}
+
+function renderPostPhase() {
+  $("#topicPicker").classList.add("hidden");
+  $("#topicWaiting").classList.add("hidden");
+  $("#actionBar").classList.add("hidden");
+  $("#challengeBox").classList.toggle("hidden", room().phase === PHASE.GAME_OVER);
+}
+
+/* ═══════════════ منطق Host (Authoritative) ═══════════════ */
+
+/**
+ * Host تنها کسی است که گذارِ فاز را می‌نویسد.
+ * این تابع با هر snapshot و هر تیک تایمر صدا زده می‌شود و idempotent است.
+ */
+async function hostTick() {
+  const r = room();
+  if (!r || resolving) return;
+
+  try {
+    if (r.phase === PHASE.BIDDING && remainingMs(r) <= 0 && r.timerDuration) {
+      resolving = true;
+      await hostHandleBidTimeout({ roomId, room: r, players: players() });
+      resolving = false;
+      return;
+    }
+
+    if (r.phase === PHASE.CHALLENGE) {
+      const rd = round();
+      if (!rd) return;
+      const done = countValidAnswers(rd) >= (r.currentBid || 0);
+      const expired = remainingMs(r) <= 0;
+      if (done || expired) {
+        resolving = true;
+        await hostResolveRound({
+          roomId, room: r, round: rd, players: players(),
+          reason: done ? "completed" : "timeout"
+        });
+        resolving = false;
+      }
+    }
+  } catch (err) {
+    resolving = false;
+    log.error("hostTick", err);
+  }
+}
+
+/* ═══════════════ کنش‌های کاربر ═══════════════ */
+
+async function submitBid(value) {
+  const r = room();
+  if (!r) return;
+  if (!rateLimit("bid", 700)) { toast("کمی آرام‌تر!", "warn", 1500); return; }
+
+  const cap = maxBidFor(r.topic);
+  const v = clampInt(value, 1, cap);
+  if (v <= (r.currentBid || 0)) {
+    toast(`عدد باید بزرگ‌تر از ${fmtNumber(r.currentBid)} باشد`, "warn");
+    return;
+  }
+  const btn = $("#bidBtn");
+  setBusy(btn, true, "…");
+  try {
+    await actionBid({ roomId, uid: myUid(), name: session.me?.name || "بازیکن", value: v, topic: r.topic });
+    haptic(HAPTIC.BID);
+    $("#bidInput").value = "";
+  } catch (err) {
+    toast(err.message || "ثبت پیشنهاد ممکن نشد", "error");
+  } finally {
+    setBusy(btn, false);
+  }
+}
+
+$("#bidBtn").addEventListener("click", () => submitBid($("#bidInput").value));
+$("#bidInput").addEventListener("keydown", (e) => { if (e.key === "Enter") submitBid($("#bidInput").value); });
+
+$$("#quickBids .btn").forEach((btn) => btn.addEventListener("click", () => {
+  const r = room();
+  const inc = Number(btn.dataset.inc) || 1;
+  const base = Math.max(Number($("#bidInput").value) || 0, (r?.currentBid || 0));
+  const cap = maxBidFor(r?.topic);
+  $("#bidInput").value = String(Math.min(cap, base + inc));
+  haptic(HAPTIC.TAP);
+}));
+
+$("#bluffBtn").addEventListener("click", async () => {
+  if (!rateLimit("bluff", 900)) return;
+  haptic(HAPTIC.BLUFF);
+  const btn = $("#bluffBtn");
+  btn.disabled = true;
+  try {
+    await actionBluff({ roomId, uid: myUid() });
+  } catch (err) {
+    toast(err.message || "ثبت بلوف ممکن نشد", "error");
+    btn.disabled = false;
+  }
+});
+
+$("#answerInput").addEventListener("keydown", async (e) => {
+  if (e.key !== "Enter" || answerBusy) return;
+  const input = $("#answerInput");
+  const text = sanitizeText(input.value, 60);
+  if (!text) return;
+  answerBusy = true;
+  input.value = "";
+  try {
+    const res = await actionAnswer({
+      roomId,
+      roundNumber: room().currentRound,
+      uid: myUid(),
+      topic: room().topic,
+      text,
+      existingAnswers: round()?.answers || []
+    });
+    if (!res.accepted) {
+      const msg = res.reason === "duplicate" ? "این مورد را قبلاً گفتی"
+        : res.reason === "off-topic" ? "این مورد در لیست نیست"
+        : "جواب ثبت نشد";
+      toast(msg, "warn", 1800);
+      haptic(HAPTIC.TIMEOUT);
+    } else {
+      haptic(res.valid ? HAPTIC.TAP : HAPTIC.BID);
+    }
+  } catch (err) {
+    log.error("answer", err);
+    toast("ثبت جواب ممکن نشد", "error");
+  } finally {
+    answerBusy = false;
+    input.focus({ preventScroll: true });
+  }
+});
+
+/* ── انتخاب موضوع (Host) ── */
+
+function usedTopicIds() {
+  const ids = history.map((h) => h.topicId).filter(Boolean);
+  return ids;
+}
+
+async function pickTopic(source) {
+  const r = room();
+  if (!r) return;
+  try {
+    const topic = await hostPickTopic({ roomId, room: r, usedTopicIds: usedTopicIds(), source });
+    toast(`موضوع: ${topic.title}`, "success", 2600);
+    haptic(HAPTIC.BID);
+  } catch (err) {
+    log.error("pickTopic", err);
+    toast("انتخاب موضوع ممکن نشد", "error");
+  }
+}
+
+$("#randomTopicBtn").addEventListener("click", () => pickTopic("random"));
+$("#pickTopicBtn").addEventListener("click", () => pickTopic({ questionId: $("#topicSelect").value }));
+$("#customTopicBtn").addEventListener("click", () => {
+  const title = sanitizeText($("#customTopic").value, 60);
+  if (title.length < 2) { toast("موضوع خیلی کوتاه است", "warn"); return; }
+  pickTopic({ customTitle: title });
+});
+
+function fillTopicSelect() {
+  const sel = $("#topicSelect");
+  clear(sel);
+  const byCat = new Map();
+  QUESTIONS.forEach((q) => {
+    if (!byCat.has(q.category)) byCat.set(q.category, []);
+    byCat.get(q.category).push(q);
+  });
+  for (const [cat, list] of byCat) {
+    const group = el("optgroup", { label: CATEGORY_LABELS[cat] || cat });
+    list.forEach((q) => group.append(el("option", { value: q.id, text: q.title })));
+    sel.append(group);
+  }
+}
+
+/* ── دور بعد / بازی دوباره ── */
+
+$("#nextRoundBtn").addEventListener("click", async () => {
+  const btn = $("#nextRoundBtn");
+  setBusy(btn, true, "…");
+  try {
+    hideRoundOverlay();
+    await hostNextRound({ roomId, room: room() });
+  } catch (err) {
+    log.error("nextRound", err);
+    toast("رفتن به دور بعد ممکن نشد", "error");
+  } finally { setBusy(btn, false); }
+});
+
+$("#playAgainBtn").addEventListener("click", async () => {
+  try {
+    await hostRestartGame({ roomId, players: players() });
+    location.replace(`./room.html?code=${roomId}`);
+  } catch (err) { log.error("restart", err); toast("شروع مجدد ممکن نشد", "error"); }
+});
+
+$("#exitBtn").addEventListener("click", async () => {
+  const ok = await confirmDialog("خروج از بازی", "با خروج، امتیازت در این بازی از بین می‌رود. مطمئنی؟", "خروج");
+  if (!ok) return;
+  await session.leave();
+  location.replace("./lobby.html");
+});
+
+$("#scoreToggle").addEventListener("click", () => {
+  $("#scoreAccordion").classList.toggle("is-open");
+});
+
+/* ═══════════════ بوت ═══════════════ */
+
+async function boot() {
+  try {
+    const { user, profile } = await pageGuard();
+    me = user;
+    fillTopicSelect();
+
+    const join = await attemptJoin({ roomId, uid: user.uid, name: profile.username });
+    if (!join.ok && join.code !== "in-progress") {
+      fatalScreen("ورود به بازی ممکن نشد", join.message, "بازگشت به خانه", "./lobby.html");
+      return;
+    }
+
+    session = new RoomSession({ roomId, uid: user.uid, name: profile.username });
+
+    session.on("room", (r) => {
+      if (r.status === STATUS.WAITING && r.phase === PHASE.LOBBY) {
+        location.replace(`./room.html?code=${roomId}`);
+        return;
+      }
+      render();
+    });
+    session.on("players", () => render());
+    session.on("round", () => render());
+    session.on("host", ({ name }) => toast(`${name} میزبان جدید شد`, "warn", 4200));
+    session.on("connection", (s) => setConnectionState(s));
+    session.on("gone", () => {
+      clearActiveRoom();
+      fatalScreen("اتاق بسته شد", "میزبان اتاق را حذف کرده است.", "بازگشت به خانه", "./lobby.html");
+    });
+    session.on("error", (err) => log.error("session", err));
+
+    await session.start();
+
+    // تاریخچه‌ی دورها برای Overlay نتیجه و آمار پایانی
+    const unsubHistory = watchHistory(roomId, (items) => {
+      history = items;
+      if (room()) render();
+    });
+    window.addEventListener("pagehide", () => unsubHistory(), { once: true });
+
+    // حلقه‌ی تایمر: رندر محلی با rAF، بدون هیچ خواندن دیتابیس
+    const stopTimer = startTimerLoop(
+      () => room(),
+      (left, ratio) => ring.update(ratio, left),
+      () => { if (isHost()) hostTick(); }
+    );
+    window.addEventListener("pagehide", () => stopTimer(), { once: true });
+
+    // بازبینی دوره‌ای وضعیت (فقط محاسبه‌ی محلی Presence + گارد Host)
+    const tick = setInterval(() => { if (room()) render(); }, 4000);
+    window.addEventListener("pagehide", () => clearInterval(tick), { once: true });
+
+  } catch (err) {
+    if (err && (err.message === "redirect-login" || err.message === "firebase-config-missing")) return;
+    log.error("game boot", err);
+    toast("اتصال به بازی ممکن نشد", "error", 6000);
+  }
+}
+</script>
+</body>
+</html>

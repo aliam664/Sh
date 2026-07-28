@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07070d">
+<title>انتخاب نام — Bluff / Bid</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/icon-192.png" type="image/png">
+<link rel="stylesheet" href="./css/style.css">
+<link rel="stylesheet" href="./css/responsive.css">
+</head>
+<body>
+
+<div class="app">
+  <header class="appbar">
+    <div class="grow">
+      <h1 class="appbar__title">خوش آمدی</h1>
+      <div class="appbar__sub">یک نام برای خودت انتخاب کن</div>
+    </div>
+  </header>
+
+  <main class="page stack">
+    <section class="glass card stack">
+      <div class="row" style="justify-content:center">
+        <div id="avatarPreview"></div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="nameInput">نام نمایشی</label>
+        <input class="input" id="nameInput" type="text" inputmode="text"
+               autocomplete="nickname" maxlength="16" placeholder="مثلاً Ali"
+               aria-describedby="nameHint">
+        <div class="small dim" id="nameHint">بین ۲ تا ۱۶ کاراکتر. همین نام را بقیه می‌بینند.</div>
+      </div>
+
+      <div class="field">
+        <span class="label">رنگ آواتار</span>
+        <div class="choice-group" id="colorRow" role="group" aria-label="انتخاب رنگ آواتار"></div>
+      </div>
+
+      <button class="btn btn--primary btn--block btn--lg" id="saveBtn" type="button">ورود به بازی</button>
+    </section>
+
+    <p class="small dim center">
+      ورود ناشناس است و به ایمیل یا شماره نیاز ندارد.
+      اگر مرورگر داده‌هایش را پاک کند، باید دوباره نام انتخاب کنی.
+    </p>
+  </main>
+</div>
+
+<script type="module">
+/** انتخاب نام و رنگ آواتار، ذخیره در users/{uid} */
+import { ensureSignedIn, fetchProfile, saveProfile } from "./js/firebase-auth.js";
+import { avatar, toast, setBusy, registerServiceWorker, clear, el } from "./js/ui.js";
+import { sanitizeUsername, isValidUsername, generateAvatarSeed, log } from "./js/security.js";
+
+registerServiceWorker();
+
+const nameInput = document.getElementById("nameInput");
+const saveBtn   = document.getElementById("saveBtn");
+const preview   = document.getElementById("avatarPreview");
+const colorRow  = document.getElementById("colorRow");
+
+const incomingCode = new URLSearchParams(location.search).get("code");
+
+// شش دانه‌ی از پیش تولیدشده تا کاربر رنگ آواتار را انتخاب کند
+const SEEDS = Array.from({ length: 6 }, () => generateAvatarSeed());
+let activeSeed = SEEDS[0];
+let user = null;
+
+function renderPreview() {
+  clear(preview);
+  preview.append(avatar(nameInput.value || "?", activeSeed, 84));
+}
+
+function renderColors() {
+  clear(colorRow);
+  SEEDS.forEach((seed, i) => {
+    const btn = el("button", {
+      class: `choice ${seed === activeSeed ? "is-active" : ""}`,
+      type: "button",
+      "aria-label": `رنگ ${i + 1}`,
+      onclick: () => { activeSeed = seed; renderColors(); renderPreview(); }
+    }, [avatar("●", seed, 26)]);
+    colorRow.append(btn);
+  });
+}
+
+nameInput.addEventListener("input", () => {
+  const cleaned = sanitizeUsername(nameInput.value);
+  if (cleaned !== nameInput.value) nameInput.value = cleaned;
+  renderPreview();
+});
+
+nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") saveBtn.click(); });
+
+saveBtn.addEventListener("click", async () => {
+  const name = sanitizeUsername(nameInput.value);
+  if (!isValidUsername(name)) {
+    toast("نام باید بین ۲ تا ۱۶ کاراکتر باشد", "warn");
+    nameInput.focus();
+    return;
+  }
+  setBusy(saveBtn, true, "در حال ذخیره…");
+  try {
+    await saveProfile(user.uid, name, activeSeed);
+    const url = new URL("./lobby.html", location.href);
+    if (incomingCode) url.searchParams.set("code", incomingCode);
+    location.replace(url.toString());
+  } catch (err) {
+    log.error("saveProfile", err);
+    setBusy(saveBtn, false);
+    toast("ذخیره نشد. اتصال اینترنت را بررسی کن", "error");
+  }
+});
+
+(async () => {
+  try {
+    user = await ensureSignedIn();
+    const profile = await fetchProfile(user.uid);
+    if (profile) {
+      nameInput.value = profile.username || "";
+      if (profile.avatarSeed) { activeSeed = profile.avatarSeed; SEEDS[0] = profile.avatarSeed; }
+      saveBtn.textContent = "ذخیره‌ی تغییرات";
+    }
+    renderColors();
+    renderPreview();
+    nameInput.focus();
+  } catch (err) {
+    if (err && err.message === "firebase-config-missing") return;
+    log.error("login boot", err);
+    toast("اتصال به سرور ممکن نشد", "error", 6000);
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07070d">
+<title>پروفایل — Bluff / Bid</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/icon-192.png" type="image/png">
+<link rel="stylesheet" href="./css/style.css">
+<link rel="stylesheet" href="./css/responsive.css">
+</head>
+<body>
+
+<div class="app">
+  <header class="appbar">
+    <a class="icon-btn" href="./lobby.html" id="backLink" aria-label="بازگشت"></a>
+    <div class="grow">
+      <h1 class="appbar__title">پروفایل</h1>
+      <div class="appbar__sub">آمار و تاریخچه‌ی تو</div>
+    </div>
+  </header>
+
+  <main class="page stack">
+
+    <section class="glass card row">
+      <div id="avatarSlot"></div>
+      <div class="grow stack-2">
+        <h2 style="margin:0" id="username">…</h2>
+        <span class="small dim" id="joinDate">—</span>
+      </div>
+      <button class="btn btn--ghost btn--sm" id="editNameBtn" type="button">ویرایش</button>
+    </section>
+
+    <section class="stack-2">
+      <h2>آمار کلی</h2>
+      <div class="stat-grid" id="statGrid"></div>
+    </section>
+
+    <section class="stack-2">
+      <div class="row row--between">
+        <h2 style="margin:0">آخرین بازی</h2>
+        <span class="badge" id="lastRoomBadge">—</span>
+      </div>
+      <div class="stack-2" id="historyList">
+        <p class="small dim">هنوز تاریخچه‌ای ثبت نشده است.</p>
+      </div>
+    </section>
+
+    <section class="glass card stack-2">
+      <h3>درباره‌ی حساب</h3>
+      <p class="small dim">
+        ورود تو ناشناس است. اگر حافظه‌ی مرورگر پاک شود یا سافاری بعد از ۷ روز
+        داده‌ها را حذف کند، هویت و آمارت از دست می‌رود. این محدودیت ذاتی
+        Anonymous Authentication است.
+      </p>
+      <button class="btn btn--ghost btn--block" id="signOutBtn" type="button">خروج و شروع با هویت جدید</button>
+    </section>
+
+  </main>
+</div>
+
+<script type="module">
+/** پروفایل: آمار کلی + تاریخچه‌ی آخرین بازی */
+import { pageGuard, signOutUser, EMPTY_STATS } from "./js/firebase-auth.js";
+import { getHistory, getRoom, toMillis } from "./js/database.js";
+import { getActiveRoomId, clearActiveRoom } from "./js/room.js";
+import {
+  el, $, avatar, icon, toast, clear, fmtNumber, fmtScore, fmtDate,
+  registerServiceWorker, confirmDialog, skeleton
+} from "./js/ui.js";
+import { store, log } from "./js/security.js";
+
+registerServiceWorker();
+
+$("#backLink").append(icon("back", 20));
+
+const STAT_LABELS = {
+  gamesPlayed:      "بازی انجام‌شده",
+  wins:             "برد",
+  totalScore:       "مجموع امتیاز",
+  successfulBluffs: "بلوف موفق",
+  caughtBluffs:     "بلوف ناموفق",
+  roundsWon:        "دور برده‌شده"
+};
+
+function renderStats(stats) {
+  const grid = $("#statGrid");
+  clear(grid);
+  const s = { ...EMPTY_STATS, ...(stats || {}) };
+  Object.entries(STAT_LABELS).forEach(([key, label]) => {
+    grid.append(el("div", { class: "stat" }, [
+      el("div", { class: "stat__value", text: fmtNumber(s[key]) }),
+      el("div", { class: "stat__label", text: label })
+    ]));
+  });
+}
+
+function renderHistory(items, uid) {
+  const list = $("#historyList");
+  clear(list);
+  if (!items.length) {
+    list.append(el("p", { class: "small dim", text: "هنوز تاریخچه‌ای ثبت نشده است." }));
+    return;
+  }
+  items.slice().reverse().forEach((h) => {
+    const myDelta = (h.deltas || {})[uid];
+    const involved = h.defenderId === uid || h.challengerId === uid;
+    list.append(el("div", { class: `history-item ${h.success ? "is-success" : "is-fail"}` }, [
+      el("div", { class: "row row--between" }, [
+        el("strong", { text: `دور ${fmtNumber(h.roundNumber)} — ${h.topic}` }),
+        myDelta !== undefined
+          ? el("span", { class: `delta-val ${myDelta > 0 ? "is-pos" : myDelta < 0 ? "is-neg" : ""}`, text: fmtScore(myDelta) })
+          : null
+      ]),
+      el("div", { class: "small dim", text:
+        `${h.defenderName} روی ${fmtNumber(h.finalBid)} ایستاد · ${h.challengerName} بلوف زد · ` +
+        `${h.success ? "مدافع برد" : `فقط ${fmtNumber(h.answersGiven)} مورد گفت`}` }),
+      involved ? el("span", { class: "badge badge--turn", text: h.defenderId === uid ? "تو مدافع بودی" : "تو بلوف زدی" }) : null
+    ]));
+  });
+}
+
+$("#editNameBtn").addEventListener("click", () => { location.href = "./login.html"; });
+
+$("#signOutBtn").addEventListener("click", async () => {
+  const ok = await confirmDialog("خروج از حساب",
+    "با خروج، آمار و هویت فعلی‌ات از این دستگاه پاک می‌شود و دیگر به آن دسترسی نداری. مطمئنی؟",
+    "خروج");
+  if (!ok) return;
+  try {
+    await signOutUser();
+    clearActiveRoom();
+    location.replace("./index.html");
+  } catch (err) { log.error("signOut", err); toast("خروج ممکن نشد", "error"); }
+});
+
+(async () => {
+  $("#historyList").replaceChildren(skeleton(2, 70));
+  try {
+    const { user, profile } = await pageGuard();
+
+    $("#username").textContent = profile.username;
+    $("#avatarSlot").append(avatar(profile.username, profile.avatarSeed, 62));
+    $("#joinDate").textContent = `عضو از ${fmtDate(toMillis(profile.joinTime))}`;
+    renderStats(profile.stats);
+
+    // تاریخچه‌ی آخرین اتاقی که کاربر در آن بوده
+    const lastRoom = getActiveRoomId() || store.get("lastRoomId", null);
+    if (!lastRoom) { renderHistory([], user.uid); $("#lastRoomBadge").textContent = "—"; return; }
+
+    const room = await getRoom(lastRoom).catch(() => null);
+    if (!room) {
+      $("#lastRoomBadge").textContent = "اتاق حذف شده";
+      renderHistory([], user.uid);
+      return;
+    }
+    $("#lastRoomBadge").textContent = `اتاق ${lastRoom}`;
+    const items = await getHistory(lastRoom).catch(() => []);
+    store.set("lastRoomId", lastRoom);
+    renderHistory(items, user.uid);
+  } catch (err) {
+    if (err && (err.message === "redirect-login" || err.message === "firebase-config-missing")) return;
+    log.error("profile boot", err);
+    clear($("#historyList"));
+    toast("بارگذاری پروفایل ممکن نشد", "error", 5000);
+  }
+})();
+</script>
+</body>
+</html>
