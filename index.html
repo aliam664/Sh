@@ -3,13 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bluff Game</title>
+<title>Bluff Game - Online Multiplayer</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="manifest" href="manifest.json">
+<style>
+body{background:#0f0f13;color:#fff;font-family:sans-serif;margin:0;padding:0;display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(135deg,#0f0f13 0%,#1a1a2e 100%);}
+.glass{background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:40px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.5);}
+h1{font-size:2.5rem;margin-bottom:10px;background:linear-gradient(90deg,#00f0ff,#ff0055);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.btn{display:inline-block;padding:14px 32px;background:linear-gradient(90deg,#00f0ff,#ff0055);border:none;border-radius:50px;color:#fff;font-weight:bold;margin-top:20px;text-decoration:none;box-shadow:0 10px 30px rgba(255,0,85,0.3);}
+</style>
 </head>
 <body>
-<div id="app">Loading...</div>
-<script type="module" src="js/firebase-config.js"></script>
-<script type="module" src="js/ui.js"></script>
+<div class="glass">
+<h1>Bluff Game</h1>
+<p>بازی آنلاین چندنفره با صدا و بلوف</p>
+<a href="login.html" class="btn">ورود ناشناس / ثبت نام</a>
+<p style="margin-top:30px;font-size:0.9rem;color:#aaa;">Repo: <a href="https://github.com/aliam664/Sh" style="color:#00f0ff;">GitHub</a> | Live: <a href="https://aliam664.github.io/Sh/" style="color:#00f0ff;">Pages</a></p>
+</div>
 </body>
 </html>
