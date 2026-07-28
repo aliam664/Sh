@@ -1,7 +1,9 @@
-=== پروژه بازی Bluff چندنفره آنلاین ===
-معماری: Frontend HTML5/CSS3/JS ES6+ بدون فریمورک سنگین + PWA. Backend: Firebase Auth Anonymous + Firestore + Realtime onSnapshot.
-صفحات: index, login, lobby, room, game, profile. ساختار پوشه‌ها: css/, js/, manifest.json, service-worker.js.
-اتصال: فقط firebaseConfig در js/firebase-config.js وارد شود. سپس Firebase Auth و Firestore فعال شوند.
-نحوه بازی آنلاین: کاربر ورود ناشناس می‌کند، نام انتخاب می‌کند، Lobby می‌سازد یا با کد ۶ کاراکتری وارد Room می‌شود. بازی با همگام‌سازی لحظه‌ای اجرا می‌شود.
-وضعیت فعلی: اسکلت اولیه موجود است؛ برای اجرا کامل نیاز به database.js، game-engine.js و rules امنیتی است.
-تکمیل پروژه = امکان بازی واقعی آنلاین.
+=== Bluff Game (Online Multiplayer) ===
+Repo: https://github.com/aliam664/Sh
+Live: https://aliam664.github.io/Sh/
+Tech: HTML5, CSS3, JS ES6+, Firebase (Auth/Firestore/Realtime), PWA.
+Files: index.html, login.html, lobby.html, room.html, game.html, profile.html, css/style.css, css/responsive.css, js/firebase-config.js, js/firebase-auth.js, js/database.js, js/room.js, js/game-engine.js, js/ui.js, js/questions.js, js/security.js, manifest.json, service-worker.js.
+Deployment: GitHub Pages from branch arena/019faa08-sh.
+Connection: Add Firebase Config to js/firebase-config.js.
+Online Play: Anonymous Auth -> Name -> Lobby (Create/Join Room with 6-char code) -> Real-time Game using onSnapshot.
+Status: Core scaffold done. Full online play requires database, engine, and security rules to be completed.
