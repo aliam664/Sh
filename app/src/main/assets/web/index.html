@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="fa">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>رمزو</title>
+<style>
+:root{
+  --bg:#0B1020; --s1:#161F38; --s2:#1E2947; --acc:#2DD4BF; --gold:#FBBF24;
+  --txt:#EDF2F7; --dim:#93A3C4; --g:#22C55E; --y:#EAB308; --r:#EF4444; --n:#2A3556;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+body{margin:0; background:var(--bg); color:var(--txt); font-family:Tahoma,'Segoe UI',sans-serif;
+     min-height:100vh; display:flex; flex-direction:column; align-items:center;
+     padding:20px 16px calc(20px + env(safe-area-inset-bottom)) 16px;}
+#app{width:100%; max-width:430px; display:flex; flex-direction:column; gap:14px;}
+h1{font-size:26px; margin:6px 0 0; text-align:center}
+.sub{color:var(--dim); font-size:13px; text-align:center}
+.card{background:var(--s1); border-radius:20px; padding:16px; width:100%}
+.card h3{margin:0 0 10px; font-size:15px}
+input[type=text]{width:100%; padding:13px 14px; font-size:16px; border-radius:14px;
+  border:1.5px solid var(--s2); background:var(--s2); color:var(--txt); outline:none}
+input[type=text]:focus{border-color:var(--acc)}
+.btn{width:100%; padding:15px; border:none; border-radius:16px; font-size:17px; font-weight:bold;
+  background:var(--acc); color:var(--bg); cursor:pointer}
+.btn:disabled{background:var(--s2); color:var(--dim)}
+.row{display:flex; align-items:center; justify-content:space-between; padding:9px 10px; border-radius:12px}
+.row.me{background:var(--s2)}
+.name{font-size:15px}
+.muted{color:var(--dim); font-size:13px}
+.gold{color:var(--gold)}
+.ltr{direction:ltr; display:flex; gap:8px; justify-content:center}
+.box{width:54px; height:54px; border-radius:14px; background:var(--s2); display:flex;
+  align-items:center; justify-content:center; font-size:24px; font-weight:bold}
+.box.active{outline:2px solid var(--acc)}
+.box.filled{background:var(--s1)}
+.tile{width:42px; height:42px; border-radius:11px; display:flex; align-items:center;
+  justify-content:center; font-size:19px; font-weight:bold; color:#fff}
+.tg{background:var(--g)} .ty{background:var(--y); color:var(--bg)} .tr{background:var(--r)} .tn{background:var(--n)}
+.guessrow{display:flex; align-items:center; justify-content:space-between; padding:5px 2px}
+.pad{display:flex; flex-direction:column; gap:9px; align-items:center; direction:ltr}
+.padrow{display:flex; gap:9px}
+.key{width:70px; height:70px; border-radius:50%; background:var(--s2); display:flex;
+  align-items:center; justify-content:center; font-size:25px; font-weight:bold; cursor:pointer; user-select:none}
+.key.ok{background:var(--acc); color:var(--bg)}
+.key.off{background:var(--s1); color:var(--dim); pointer-events:none}
+.stat{display:flex; justify-content:space-between; font-size:13px}
+.stat b{font-size:14px}
+#banner{position:fixed; bottom:18px; left:16px; right:16px; max-width:430px; margin:auto;
+  background:var(--s2); border-radius:14px; padding:13px 16px; font-size:14px; text-align:center;
+  box-shadow:0 8px 30px rgba(0,0,0,.5); display:none}
+.ok-txt{color:var(--g); font-weight:bold}
+.sec-big{font-size:21px; font-weight:800; color:var(--gold); text-align:center}
+.center{text-align:center}
+.fade{animation:f .25s ease}
+@keyframes f{from{opacity:0; transform:translateY(6px)}to{opacity:1; transform:none}}
+.spin{display:inline-block; animation:sp 1s infinite linear}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="banner"></div>
+
+<script>
+"use strict";
+let ws=null, snap=null, input="", joined=false, reconnectTimer=null;
+const app=document.getElementById('app'), banner=document.getElementById('banner');
+
+/* ---------------- اتصال ---------------- */
+function connect(){
+  ws=new WebSocket('ws://'+location.host+'/ws');
+  ws.onopen=()=>{
+    if(reconnectTimer){clearInterval(reconnectTimer); reconnectTimer=null;}
+    const n=sessionStorage.getItem('ramzoName');
+    if(n){ ws.send(JSON.stringify({t:'hello', name:n})); }
+    else renderLanding();
+  };
+  ws.onmessage=(ev)=>{
+    const m=JSON.parse(ev.data);
+    if(m.t==='snap'){ snap=m; joined=true; input=""; render(); }
+    else if(m.t==='err'){ showBanner(errText(m.code)); try{ws.close();}catch(e){} }
+  };
+  ws.onclose=()=>{
+    ws=null;
+    if(joined){
+      showBanner('اتصال قطع شد — در حال تلاش برای وصل‌شدن دوباره…');
+      if(!reconnectTimer) reconnectTimer=setInterval(connect,1500);
+    }
+  };
+  ws.onerror=()=>{ try{ws.close();}catch(e){} };
+}
+function send(o){ if(ws&&ws.readyState===1) ws.send(JSON.stringify(o)); }
+function errText(c){
+  return ({room_full:'اتاق پر است (حداکثر ۵ نفر) 😕',
+           game_started:'بازیْ وسطش است! صبر کن دور تمام شود یا اتاق تازه ساخته شود',
+           bad_secret:'کد باید دقیقاً ۴ رقم باشد'})[c] || 'خطا: '+c;
+}
+let bannerT=null;
+function showBanner(t){ banner.textContent=t; banner.style.display='block';
+  if(bannerT) clearTimeout(bannerT);
+  bannerT=setTimeout(()=>{banner.style.display='none';},3600); }
+
+/* ---------------- ابزار رندر ---------------- */
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const boxRow=(txt,len)=>{let h='<div class="ltr">';for(let i=0;i<len;i++){
+  const c=txt[i]||'', cls=c?'box filled':(i===txt.length?'box active':'box');
+  h+='<div class="'+cls+'">'+(c||'·')+'</div>';}return h+'</div>';};
+const tilesRow=(guess,tiles)=>{let h='<div class="ltr">';for(let i=0;i<guess.length;i++){
+  const cls=tiles[i]===0?'tg':(tiles[i]===1?'ty':'tr');
+  h+='<div class="tile '+cls+'">'+guess[i]+'</div>';}return h+'</div>';};
+const pRow=(p,me)=>{
+  const badge=(p.host?' 👑':'')+(me?' (شما)':'');
+  return '<div class="row'+(me?' me':'')+'"><span class="name">'+esc(p.name)+
+    '<span class="gold">'+badge+'</span></span><span class="muted">'+(p.host?'میزبان':'')+'</span></div>';};
+const keypad=(can,labelOk)=>{
+  const rows=[['1','2','3'],['4','5','6'],['7','8','9']];
+  let h='<div class="pad">';
+  rows.forEach(r=>{h+='<div class="padrow">';r.forEach(d=>{
+    h+='<div class="key'+(can?'':' off')+'" onclick="keyDigit(\''+d+'\')">'+d+'</div>';});h+='</div>';});
+  h+='<div class="padrow"><div class="key'+(can?'':' off')+'" onclick="keyBack()">⌫</div>'+
+     '<div class="key'+(can?'':' off')+'" onclick="keyDigit(\'0\')">0</div>'+
+     '<div class="key '+(can&&input.length==4?'ok':'off')+'" onclick="keyOk()">'+(labelOk||'✓')+'</div></div>';
+  return h+'</div>';};
+function keyDigit(d){ if(input.length<4){input+=d; render();} }
+function keyBack(){ if(input){input=input.slice(0,-1); render();} }
+function progList(arr,meId,max){
+  return arr.map(p=>'<div class="row'+(p.id===meId?' me':'')+'"><span class="name">'+esc(p.name)+
+    '</span><span class="'+(p.solved?'ok-txt':'muted')+'">'+
+    (p.solved?'حل کرد! ✅':p.used+'/'+max)+'</span></div>').join('');
+}
+const scoreRows=(list,me)=>{
+  const max=Math.max(...list.map(s=>s.score),0);
+  return list.map(s=>'<div class="row'+(s.id===me?' me':'')+'">'+
+    '<span class="name">'+esc(s.name)+(s.score===max&&max>0?' 🏆':'')+(s.id===me?' (شما)':'')+
+    '</span><span class="'+(s.score===max&&max>0?'gold':'muted')+'">'+s.score+'</span></div>').join('');
+};
+
+/* ---------------- صفحه‌ها ---------------- */
+function renderLanding(){
+  app.innerHTML='<div class="fade">'
+    +'<h1>رمزو 🔐</h1><div class="sub">حدسِ رمز با دوستان — بدون نصب، همین‌جا تو مرورگر</div>'
+    +'<div class="card"><h3>نام شما</h3>'
+    +'<input type="text" id="nm" maxlength="12" placeholder="مثلاً سارا" autocomplete="off">'
+    +'<div style="height:12px"></div>'
+    +'<button class="btn" onclick="doJoin()">ورود به اتاق ←</button></div>'
+    +'<div class="sub">اتاق: <b>'+esc(location.host)+'</b></div></div>';
+  const el=document.getElementById('nm'); if(el) el.focus();
+}
+function doJoin(){
+  const el=document.getElementById('nm'); const name=(el?el.value:'').trim();
+  if(!name){ showBanner('اول نام‌تان را بنویسید'); return; }
+  sessionStorage.setItem('ramzoName',name);
+  send({t:'hello', name:name});
+}
+function render(){
+  if(!snap){ renderLanding(); return; }
+  ({lobby:vLobby, secret:vSecret, game:vGame, spectate:vSpectate, result:vResult, final:vFinal})[snap.view]();
+}
+function vLandingGuarded(){ renderLanding(); }
+
+function vLobby(){
+  const players=snap.players.map(p=>pRow(p,p.id===snap.you.id)).join('');
+  app.innerHTML='<div class="fade">'
+    +'<h1>اتاق بازی 🛋️</h1>'
+    +'<div class="card"><h3>بازیکنان ('+snap.players.length+'/۵)</h3>'+players+'</div>'
+    +'<div class="sub"><span class="spin">⏳</span> منتظر شروع بازی توسط میزبان… هر بازیکن یک‌بار صاحب رمز می‌شود</div></div>';
+}
+
+function vSecret(){
+  app.innerHTML='<div class="fade">'
+    +'<h1>شما صاحب رمز هستید 🛡️</h1><div class="sub">یک کد ۴ رقمی بسازید و مخفی نگه‌اش دارید 🤫</div>'
+    +boxRow(input,4)+keypad(true)+'</div>';
+}
+function keyOk(){
+  if(input.length!==4) return;
+  if(snap.view==='secret'){ send({t:'secret', s:input}); }
+  else if(snap.view==='game'){ send({t:'guess', g:input}); }
+}
+
+function vGame(){
+  const meId=snap.you.id;
+  const hist=snap.history.map((h,i)=>{
+    const num=snap.history.length-i;
+    return '<div class="guessrow"><span class="muted">'+num+'.</span>'+tilesRow(h[0],h[1])+'</div>';
+  }).join('');
+  const others=snap.progress.filter(p=>p.id!==meId);
+  const can=snap.open&&!snap.you.solved&&snap.you.left>0;
+  const topMsg= snap.you.solved
+     ? '<div class="ok-txt center">آفرین! رمز را شکستید 🎉 منتظر پایان دور…</div>'
+     : (!snap.open ? '<div class="muted center">در انتظار رمز '+esc(snap.holder)+'…</div>' : '');
+  app.innerHTML='<div class="fade">'
+    +'<div class="stat"><b>دور '+snap.round+' از '+snap.total+'</b>'
+    +'<span class="muted">صاحب رمز: '+esc(snap.holder)+'</span>'
+    +'<span style="color:var(--acc);font-weight:bold">حدس باقی‌مانده: '+snap.you.left+'</span></div>'
+    +'<div class="card" style="min-height:120px"><h3>حدس‌های من</h3>'
+    +(hist||'<div class="muted">هنوز حدسی نزدید — با رنگ‌ها شکارش کنید! 🟩🟨🟥</div>')
+    +'</div>'
+    +(others.length?'<div class="card"><h3>وضعیت بقیه</h3>'+progList(others,meId,snap.max)+'</div>':'')
+    +topMsg+boxRow(input,4)+keypad(can)+'</div>';
+}
+
+function vSpectate(){
+  const sec=snap.you.secret||'';
+  app.innerHTML='<div class="fade">'
+    +'<h1>شما ناظر رمز هستید 🛡️</h1>'
+    +'<div class="card center"><div class="muted">رمز شما</div><div class="sec-big">'+esc(sec)+'</div></div>'
+    +'<div class="card"><h3>بازیکنان در حال حدس‌زدن‌اند… 👀</h3>'
+    +progList(snap.progress,snap.you.id,snap.max)+'</div></div>';
+}
+
+function vResult(){
+  const r=snap.result||{};
+  const title = r['void'] ? 'این دور باطل شد 😶'
+    : r.holderPoint ? 'رمز شکسته نشد — امتیاز به '+esc(r.name)+' (صاحب رمز) رسید 🛡️'
+    : '🎉 '+esc(r.name)+' رمز را شکست!';
+  const secretHtml = r.secret && r.secret!=='—'
+    ? '<div class="card center"><div class="muted">رمز این بود:</div><div class="sec-big">'+esc(r.secret)+'</div></div>' : '';
+  app.innerHTML='<div class="fade">'
+    +'<h1 class="'+ (r['void']?'':'gold') +'">'+title+'</h1>'
+    +secretHtml
+    +'<div class="card"><h3>جدول امتیازات</h3>'+scoreRows(snap.scores,snap.you.id)+'</div>'
+    +'<div class="sub">⏳ منتظر میزبان برای '+(r.last?'نمایش قهرمان':'دور بعدی')+'…</div></div>';
+}
+
+function vFinal(){
+  const ch=(snap.champions||[]).join(' و ');
+  const many=(snap.champions||[]).length>1;
+  app.innerHTML='<div class="fade">'
+    +'<h1>پایان مسابقه! 🏁</h1>'
+    +'<div class="card center"><div class="sec-big">🏆 قهرمان: '+esc(ch)+'</div>'
+    +(many?'<div class="muted">قهرمانی مشترک!</div>':'')+'</div>'
+    +'<div class="card"><h3>جدول پایانی</h3>'+scoreRows(snap.scores,snap.you.id)+'</div>'
+    +'<div class="sub">میزبان می‌تواند اتاق را ببندد — ممنون که بازی کردید 💛</div></div>';
+}
+
+/* ---------------- شروع ---------------- */
+connect();
+</script>
+</body>
+</html>

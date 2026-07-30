@@ -1,6 +1,5 @@
 package com.ramzo.game.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,23 +9,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ramzo.game.GameViewModel
@@ -36,15 +27,15 @@ import com.ramzo.game.ui.components.RamzoCard
 import com.ramzo.game.ui.components.ScreenTitle
 import com.ramzo.game.ui.theme.Accent
 import com.ramzo.game.ui.theme.Bg
+import com.ramzo.game.ui.theme.Gold
 import com.ramzo.game.ui.theme.TextDim
 
 /**
- * صفحهٔ خانه — نام کاربر + میزبانی / پیوستن (کشف خودکار اتاق‌ها + IP دستی)
+ * صفحهٔ خانه — نام + ساختن اتاق.
+ * مهمان‌ها چیزی نصب نمی‌کنند؛ از مرورگر گوشی‌شان با هات‌اسپات وارد می‌شوند.
  */
 @Composable
 fun HomeScreen(state: UiState, vm: GameViewModel) {
-    var manualIp by remember { mutableStateOf("") }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -59,7 +50,6 @@ fun HomeScreen(state: UiState, vm: GameViewModel) {
         )
         Spacer(modifier = Modifier.height(8.dp))
 
-        // نام شما
         RamzoCard {
             OutlinedTextField(
                 value = state.myName,
@@ -71,7 +61,6 @@ fun HomeScreen(state: UiState, vm: GameViewModel) {
             )
         }
 
-        // میزبانی
         Button(
             onClick = vm::hostGame,
             modifier = Modifier
@@ -86,68 +75,33 @@ fun HomeScreen(state: UiState, vm: GameViewModel) {
             )
         }
 
-        // پیوستن
+        // راهنمای حضور مهمان‌ها
         RamzoCard {
             Text(
-                stringResource(R.string.join_section_title),
-                fontSize = 17.sp,
+                stringResource(R.string.join_help_title),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Gold,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            HelpLine("۱", stringResource(R.string.join_step_1))
+            HelpLine("۲", stringResource(R.string.join_step_2))
+            HelpLine("۳", stringResource(R.string.join_step_3))
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                stringResource(R.string.join_no_install_note),
+                fontSize = 13.sp,
+                color = Accent,
                 fontWeight = FontWeight.Bold,
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                stringResource(R.string.nearby_rooms),
-                fontSize = 13.sp,
-                color = TextDim,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (state.foundRooms.isEmpty()) {
-                Text(
-                    stringResource(R.string.no_rooms_hint),
-                    fontSize = 13.sp,
-                    color = TextDim,
-                    lineHeight = 19.sp,
-                )
-            } else {
-                state.foundRooms.forEach { room ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = !state.connecting) { vm.joinRoom(room) }
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(room.roomName, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                        Text(room.host, fontSize = 13.sp, color = TextDim)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // اتصال دستی با IP
-            OutlinedTextField(
-                value = manualIp,
-                onValueChange = { manualIp = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.manual_ip_hint)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            TextButton(
-                onClick = { vm.joinByIp(manualIp) },
-                enabled = !state.connecting,
-                modifier = Modifier.align(Alignment.End),
-            ) {
-                Text(
-                    if (state.connecting) stringResource(R.string.connecting)
-                    else stringResource(R.string.connect) + " ←",
-                    color = Accent,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
         }
+    }
+}
+
+@Composable
+private fun HelpLine(num: String, text: String) {
+    Row(modifier = Modifier.padding(vertical = 3.dp)) {
+        Text(text = "$num. ", fontSize = 14.sp, color = Gold, fontWeight = FontWeight.Bold)
+        Text(text = text, fontSize = 14.sp, color = TextDim, lineHeight = 20.sp)
     }
 }

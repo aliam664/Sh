@@ -58,6 +58,13 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
+    // وب‌سرور مهمان‌ها (HTTP + WebSocket) — سبک و بدون نیاز به اینترنت
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
+    implementation("org.nanohttpd:nanohttpd-websocket:2.3.1")
+
+    // تولید QR برای ورود سریع مهمان‌ها (فقط core)
+    implementation("com.google.zxing:core:3.5.3")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     // Unit tests (pure JVM — game logic)

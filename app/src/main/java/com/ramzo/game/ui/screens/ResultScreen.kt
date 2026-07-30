@@ -22,8 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ramzo.game.GameViewModel
 import com.ramzo.game.R
-import com.ramzo.game.ScoreEntry
 import com.ramzo.game.UiState
+import com.ramzo.game.game.ScoreEntry
 import com.ramzo.game.ui.components.DigitBoxes
 import com.ramzo.game.ui.components.PlayerLine
 import com.ramzo.game.ui.components.RamzoCard

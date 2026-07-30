@@ -51,7 +51,7 @@ fun AppRoot(vm: GameViewModel) {
                 ) {
                     when (state.screen) {
                         Screen.HOME -> HomeScreen(state, vm)
-                        Screen.HOST_LOBBY, Screen.CLIENT_LOBBY -> LobbyScreen(state, vm)
+                        Screen.HOST_LOBBY -> LobbyScreen(state, vm)
                         Screen.SECRET -> SecretScreen(state, vm)
                         Screen.GAME -> GameScreen(state, vm)
                         Screen.SPECTATE -> SpectateScreen(state)

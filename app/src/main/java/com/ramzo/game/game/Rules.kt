@@ -26,6 +26,9 @@ object Rules {
     /** پورت TCP اتاق بازی */
     const val TCP_PORT = 48000
 
+    /** پورت HTTP/WebSocket وب‌سرور مهمان‌ها */
+    const val HTTP_PORT = 8080
+
     /** پورت UDP برای کشف اتاق */
     const val UDP_PORT = 47777
 
