@@ -1,0 +1,15 @@
+# Android / Gradle
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/app/build/
+/captures
+.externalNativeBuild
+.cxx
+/local.properties
+
+# Note: gradle-wrapper.jar intentionally not committed in this workspace.
+# Android Studio will provision it automatically on first sync.

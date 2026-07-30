@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- teal disc -->
+    <path
+        android:fillColor="#2DD4BF"
+        android:pathData="M54,22a32,32 0 1,0 0.01,0z" />
+    <!-- four code dots (the secret) -->
+    <path
+        android:fillColor="#0B1020"
+        android:pathData="M34,54m-5,0a5,5 0 1,1 10,0a5,5 0 1,1 -10,0" />
+    <path
+        android:fillColor="#0B1020"
+        android:pathData="M47.33,54m-5,0a5,5 0 1,1 10,0a5,5 0 1,1 -10,0" />
+    <path
+        android:fillColor="#0B1020"
+        android:pathData="M60.67,54m-5,0a5,5 0 1,1 10,0a5,5 0 1,1 -10,0" />
+    <path
+        android:fillColor="#0B1020"
+        android:pathData="M74,54m-5,0a5,5 0 1,1 10,0a5,5 0 1,1 -10,0" />
+</vector>

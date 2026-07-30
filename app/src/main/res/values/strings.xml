@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">رمزو</string>
+
+    <!-- Home -->
+    <string name="home_tagline">بازی حدسِ رمز — روی هات‌اسپات، بدون اینترنت</string>
+    <string name="your_name">نام شما</string>
+    <string name="your_name_hint">مثلاً علی</string>
+    <string name="host_game">میزبانی بازی 👑</string>
+    <string name="join_section_title">پیوستن به بازی</string>
+    <string name="nearby_rooms">اتاق‌های نزدیک</string>
+    <string name="no_rooms_hint">اتاقی پیدا نشد — مطمئن شوید به هات‌اسپات میزبان وصل هستید یا IP را دستی وارد کنید</string>
+    <string name="manual_ip_hint">IP میزبان (مثلاً 192.168.43.1)</string>
+    <string name="connect">اتصال</string>
+    <string name="connecting">در حال اتصال…</string>
+
+    <!-- Lobby -->
+    <string name="lobby_title">اتاق بازی</string>
+    <string name="room_name_format">بازیِ %1$s</string>
+    <string name="room_ip_label">برای اتصال دستی، این IP را بدهید:</string>
+    <string name="players">بازیکنان</string>
+    <string name="capacity">ظرفیت</string>
+    <string name="you_tag">شما</string>
+    <string name="host_tag">میزبان</string>
+    <string name="waiting_for_host">در انتظار شروع میزبان…</string>
+    <string name="start_game">شروع بازی</string>
+    <string name="need_two_players">حداقل ۲ بازیکن لازم است</string>
+    <string name="everyone_holds_once">هر بازیکن یک بار صاحب رمز می‌شود</string>
+    <string name="leave">خروج</string>
+
+    <!-- Secret entry -->
+    <string name="secret_title">شما صاحب رمز هستید 🛡️</string>
+    <string name="secret_hint">یک کد ۴ رقمی انتخاب کنید و مخفی نگه‌اش دارید!</string>
+    <string name="secret_share_warning">این عدد را به کسی نشان ندهید 🤫</string>
+
+    <!-- Game -->
+    <string name="round_of">دور %1$d از %2$d</string>
+    <string name="guesses_left">حدس باقی‌مانده: %1$d</string>
+    <string name="waiting_secret">در انتظار رمز %1$s…</string>
+    <string name="my_guesses">حدس‌های من</string>
+    <string name="others_status">وضعیت بقیه</string>
+    <string name="solved_tag">حل کرد! ✅</string>
+    <string name="you_solved_wait">آفرین! رمز را شکستید 🎉 منتظر پایان دور…</string>
+    <string name="holder_label">صاحب رمز: %1$s</string>
+
+    <!-- Spectate (secret holder) -->
+    <string name="spectate_title">شما ناظر رمز هستید 🛡️</string>
+    <string name="your_secret_is">رمز شما</string>
+    <string name="watching_players">بازیکنان در حال حدس‌زدن‌اند…</string>
+
+    <!-- Round result -->
+    <string name="result_winner">🎉 %1$s رمز را شکست!</string>
+    <string name="result_holder_point">رمز شکسته نشد — امتیاز دور به %1$s (صاحب رمز) رسید 🛡️</string>
+    <string name="result_void_round">این دور باطل شد</string>
+    <string name="secret_was">رمز این بود:</string>
+    <string name="scoreboard">جدول امتیازات</string>
+    <string name="next_round">دور بعدی</string>
+    <string name="waiting_host_next">در انتظار میزبان برای دور بعدی…</string>
+    <string name="show_champion">نمایش قهرمان</string>
+
+    <!-- Final -->
+    <string name="final_title">پایان مسابقه!</string>
+    <string name="champion_is">🏆 قهرمان: %1$s</string>
+    <string name="champions_shared">🏆 قهرمانی مشترک: %1$s</string>
+    <string name="end_and_exit">پایان و خروج</string>
+
+    <!-- Errors / banners -->
+    <string name="err_name_required">اول نام‌تان را بنویسید</string>
+    <string name="err_room_full">اتاق پر است (حداکثر %1$d نفر)</string>
+    <string name="err_proto_mismatch">نسخهٔ بازی شما با میزبان یکی نیست — هر دو به‌روز کنید</string>
+    <string name="err_connect_failed">اتصال برقرار نشد — IP و هات‌اسپات را چک کنید</string>
+    <string name="err_connection_lost">اتصال با میزبان قطع شد</string>
+    <string name="err_host_closed">میزبان اتاق را بست</string>
+    <string name="err_bad_secret">رمز باید دقیقاً ۴ رقم باشد</string>
+    <string name="err_guesses_over">سقف حدس‌های شما تمام شده است</string>
+    <string name="err_host_failed">ساختن اتاق ممکن نشد — چک کنید هات‌اسپات یا Wi‑Fi روشن باشد</string>
+    <string name="err_invalid_ip">IP معتبر وارد کنید</string>
+    <string name="err_game_started">این اتاق وسط بازی است — کمی صبر کنید یا اتاق تازه بسازید</string>
+    <string name="left_game_notice">%1$s بازی را ترک کرد</string>
+    <string name="joined_game_notice">%1$s به بازی پیوست</string>
+</resources>
