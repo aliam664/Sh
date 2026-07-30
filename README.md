@@ -5,7 +5,7 @@
 - 👑 **فقط میزبان** اپ نصب می‌کند (اندروید)
 - 🌐 **مهمان‌ها هیچ چیزی نصب نمی‌کنند** — به هات‌اسپات وصل می‌شوند، QR را اسکن می‌کنند و **داخل مرورگر** بازی می‌کنند (حتی آیفون/سافاری!)
 - 👥 ۲ تا ۵ بازیکن — 🏆 صاحب‌رمزی بین همه می‌چرخد و در پایان قهرمان اعلام می‌شود
-- ⚔️ می‌خواهید **همین الآن** بدون هیچ نصبی دونفره بازی کنید؟ پوشهٔ **[standalone/guess-duel/](standalone/guess-duel/)** را دانلود کنید و `index.html` را در مرورگر باز کنید (دوئل نوبتی در یک گوشی — آفلاین، بدون سرور)
+- ⚔️ می‌خواهید **همین الآن** بدون هیچ نصبی دونفره بازی کنید؟ **[پیش‌نمای فوری (کلیک کنید و بازی کنید)](https://htmlpreview.github.io/?https://github.com/aliam664/Sh/blob/arena/019fb378-sh/docs/guess-duel/index.html)** — نسخهٔ دائمی روی GitHub Pages: **[aliam664.github.io/Sh/guess-duel](https://aliam664.github.io/Sh/guess-duel/)** (فعال‌سازی یک‌دقیقه‌ای طبق **[این راهنما](docs/github-pages-setup-fa.md)**). سورس: **[docs/guess-duel/](docs/guess-duel/)** — دوئل نوبتی در یک گوشی، آفلاین، بدون سرور
 - اسناد: [GDD](docs/gdd-fa.md) · [معماری v2](docs/architecture-fa.md) · [امکان‌سنجی](docs/local-multiplayer-analysis-fa.md)
 
 ---

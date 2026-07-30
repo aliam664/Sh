@@ -45,7 +45,10 @@ const stage = document.getElementById("stage");
 /* ------------------------------ ابزار عمومی ----------------------------- */
 
 const $ = (sel) => document.querySelector(sel);
-const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+// فرار از & < و کوتیشن‌ها — فیکس شکستن اتریبیوت value با نامِ حاوی "
+const esc = (s) => String(s)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 const vib = (p) => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
 
 /** بارگذاری نام‌ها از حافظهٔ مرورگر (تجربهٔ بهتر در بازی دوباره) */
@@ -212,6 +215,14 @@ function confirmSecret() {
 /** ورود به فاز «گوشی را بده به …» با مقصد مشخص */
 function enterPass(toPlayer, nextPhase) {
   G.turn = toPlayer;                 // گیرندهٔ گوشی (هم برای PASS هم بعدش)
+  // فیکس UX: اگر گیرنده قبلاً رمز را شکسته، صفحهٔ پاس رد می‌شود و پنل
+  // «شکستی!» مستقیم می‌آید (محتوایش فقط تاریخچهٔ حدس‌های خودش است →
+  // هیچ اطلاعات محرمانه‌ای لو نمی‌رود و پاس‌دادن بی‌فایده حذف می‌شود)
+  if (nextPhase === Phase.TURN && playerSolved(toPlayer)) {
+    G.phase = Phase.TURN;
+    render();
+    return;
+  }
   G.passNext = nextPhase;
   if (nextPhase === Phase.SECRET) G.settingFor = toPlayer;
   G.phase = Phase.PASS;
