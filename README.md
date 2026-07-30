@@ -11,6 +11,8 @@
 
 ## 🚀 اجرای سریع (فقط برای میزبان/توسعه‌دهنده)
 
+> 📱 **بدون PC می‌خواهید؟** → **[docs/build-without-pc-fa.md](docs/build-without-pc-fa.md)** — با مرورگر گوشی از گیت‌هاب APK آماده بگیرید یا با Termux روی خود گوشی بسازید (فایل CI آماده در `ci/android-build.yml`).
+
 ### پیش‌نیاز
 1. **Android Studio** (نسخهٔ جدید)
 2. JDK 17 + Android SDK 34
